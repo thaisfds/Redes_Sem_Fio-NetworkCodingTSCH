@@ -1,0 +1,35 @@
+# Ignorar a pasta 'build' do Cooja/Contiki-NG
+build/
+
+# Ignorar arquivos de backup e temporários (ex: .bak, ~)
+*~
+*.bak
+# Ignorar arquivos de swap do Vim
+*.swp
+*.swo
+
+# Ignorar arquivos de log
+*.log
+logs/
+
+# Ignorar arquivos de cache e dados de IDEs comuns
+.vscode/        # VS Code
+.idea/          # IntelliJ/WebStorm/PyCharm
+*.iml           # IntelliJ IDEA module files
+.DS_Store       # macOS
+Thumbs.db       # Windows
+
+# Ignorar arquivos binários e objetos comuns
+*.o             # Arquivos objeto
+*.obj
+*.exe           # Executáveis
+*.dll
+*.so            # Bibliotecas compartilhadas Linux
+*.dylib         # Bibliotecas compartilhadas macOS
+*.a             # Bibliotecas estáticas
+
+# Ignorar pacotes e dependências de ambiente (se aplicável)
+node_modules/   # Node.js
+venv/           # Python virtual environment
+__pycache__/    # Python compiled bytecode
+*.pyc           # Python compiled bytecode
