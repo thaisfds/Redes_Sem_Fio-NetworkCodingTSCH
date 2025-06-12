@@ -52,7 +52,8 @@
 #define LOG_CONF_LEVEL_6LOWPAN                     LOG_LEVEL_WARN
 #define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_DBG  // Detalhado para MAC (útil no TSCH)
 #define LOG_CONF_LEVEL_FRAMER                      LOG_LEVEL_INFO
-
+#define LOG_CONF_LEVEL_APP                         LOG_LEVEL_INFO // Nível de log para sua aplicação
+ 
 /* Ativa logs por slot no TSCH, útil para debug */
 #define TSCH_LOG_CONF_PER_SLOT                     1
 

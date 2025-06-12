@@ -9,11 +9,25 @@
 #define DEBUG DEBUG_PRINT
 #include "net/ipv6/uip-debug.h"
 
+#define LOG_MODULE "App"
+#define LOG_LEVEL LOG_CONF_LEVEL_APP
+
+#define UDP_PORT 1234
+#define SEND_INTERVAL (60 * CLOCK_SECOND)  // tempo entre envios
+
+/*---------------------------------------------------------------------------*/
+/*DEFINIÇÃO DOS PROCESSOS----------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
+
 /* Define o processo chamado "RPL Node" */
 PROCESS(node_process, "RPL Node");
 
 /* Define que este processo será iniciado automaticamente ao ligar o nó */
 AUTOSTART_PROCESSES(&node_process);
+
+/*---------------------------------------------------------------------------*/
+/*PROCESSO----------------------------------------------------*/
+/*---------------------------------------------------------------------------*/
 
 /* Corpo do processo */
 PROCESS_THREAD(node_process, ev, data)
@@ -26,8 +40,18 @@ PROCESS_THREAD(node_process, ev, data)
 
   /* Se estiver rodando no simulador Cooja, define o nó 1 como coordenador */
 #if CONTIKI_TARGET_COOJA
-  is_coordinator = (node_id == 1); // node_id é definido automaticamente no Cooja
+  is_coordinator = (node_id == 5); // node_id é definido automaticamente no Cooja
 #endif
+
+  /* Loga o início do processo com o ID do nó */
+  LOG_INFO("Iniciando processo do no %u\n", node_id);
+
+  if(is_coordinator) {
+    LOG_INFO("Este no (%u) e o coordenador\n", node_id);
+    NETSTACK_ROUTING.root_start();
+  } else {
+    LOG_INFO("Este no (%u) e um no comum\n", node_id);
+  }
 
   /* Se este nó for o coordenador, inicia o roteador RPL como raiz */
   if(is_coordinator) {
