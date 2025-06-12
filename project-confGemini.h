@@ -7,13 +7,13 @@
  * modification, are permitted provided that the following conditions
  * are met:
  * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ * notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
+ * notice, this list of conditions and the following disclaimer in the
+ * documentation and/or other materials provided with the distribution.
  * 3. Neither the name of the Institute nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * may be used to endorse or promote products derived from this software
+ * without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -23,7 +23,7 @@
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
@@ -31,7 +31,7 @@
 
 /**
  * \author Simon Duquennoy <simonduq@sics.se>
- *         Atis Elsts <atis.elsts@bristol.ac.uk>
+ * Atis Elsts <atis.elsts@bristol.ac.uk>
  */
 
  #ifndef __PROJECT_CONF_H__
@@ -82,12 +82,34 @@
  
  /* Logging */
  #define LOG_CONF_LEVEL_RPL                         LOG_LEVEL_INFO
- #define LOG_CONF_LEVEL_TCPIP                       LOG_LEVEL_WARN
- #define LOG_CONF_LEVEL_IPV6                        LOG_LEVEL_WARN
- #define LOG_CONF_LEVEL_6LOWPAN                     LOG_LEVEL_WARN
+ #define LOG_CONF_LEVEL_TCPIP                       LOG_LEVEL_INFO
+ #define LOG_CONF_LEVEL_IPV6                        LOG_LEVEL_INFO
+ #define LOG_CONF_LEVEL_6LOWPAN                     LOG_LEVEL_INFO
  #define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_DBG
  #define LOG_CONF_LEVEL_FRAMER                      LOG_LEVEL_INFO
+ #define LOG_CONF_LEVEL_APP                         LOG_LEVEL_INFO // Nível de log para sua aplicação
  #define TSCH_LOG_CONF_PER_SLOT                     1
  
- #endif /* __PROJECT_CONF_H__ */
+ // ----------------------------------------------------
+ // NOVO: Adições para Network Coding
+ // ----------------------------------------------------
  
+ // Roteamento: RPL (garante que o RPL-Lite seja o driver)
+ #define NETSTACK_CONF_ROUTING             rpl_lite_driver
+ #define ROUTING_CONF_RPL_LITE             1
+ 
+ // TSCH Schedule: Usar Orchestra para agendamento automático
+ #define TSCH_SCHEDULE_CONF_WITH_ORCHESTRA 1
+ #define TSCH_CONF_DEFAULT_TIMESLOT_LENGTH 10000 // Em microssegundos (10ms)
+ #define TSCH_CONF_DEFAULT_CHANNEL         26 // Canal padrão para 2.4 GHz
+ 
+ // UDP (essencial para simple-udp)
+ #define UIP_CONF_UDP                      1
+ #define UIP_CONF_UDP_CHECKSUMS            1 // Ativar checksums UDP
+ 
+ // IPv6 (configurações básicas)
+ #define UIP_CONF_IPV6_QUEUE_PKT           1
+ #define UIP_CONF_IPV6_DEFAULT_PREFIX      "aaaa::" // Prefixo IPv6 padrão para a simulação
+ #define UIP_CONF_ND6_SEND_RA              0 // Desativar Router Advertisements para nós não-border router
+ 
+ #endif /* __PROJECT_CONF_H__ */
