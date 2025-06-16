@@ -57,4 +57,9 @@
 /* Ativa logs por slot no TSCH, útil para debug */
 #define TSCH_LOG_CONF_PER_SLOT                     1
 
+/* Contiki */
+#ifndef CONTIKI_TARGET_COOJA
+#define CONTIKI_TARGET_COOJA 1 // Garante que a flag seja definida
+#endif
+
 #endif /* __PROJECT_CONF_H__ */

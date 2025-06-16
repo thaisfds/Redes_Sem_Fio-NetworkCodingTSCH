@@ -58,30 +58,13 @@ udp_rx_callback(struct simple_udp_connection *c,
 PROCESS_THREAD(node_process, ev, data)
 {
   static struct etimer periodic_timer; // Timer para envio periódico
-  int is_coordinator; // Flag para verificar se este nó é o coordenador (root)
 
   PROCESS_BEGIN(); // Início do processo Contiki
 
-  is_coordinator = 0; // Inicialmente assume que não é coordenador
-
-  /* Se estiver rodando no simulador Cooja, define o nó 1 como coordenador */
-
-  is_coordinator = (node_id == 5); // node_id é definido automaticamente no Cooja
-
   /* Loga o início do processo com o ID do nó */
-  LOG_INFO("Iniciando processo do no %d\n", node_id);
-
-  if(is_coordinator) {
-    LOG_INFO("Este no (%d) e o coordenador. Is_coordinator %d\n", node_id, is_coordinator);
-    NETSTACK_ROUTING.root_start();
-  } else {
+    LOG_INFO("Iniciando processo do no %d\n", node_id);
     LOG_INFO("Este no (%d) e um no comum\n", node_id);
-  }
 
-  /* Se este nó for o coordenador, inicia o roteador RPL como raiz */
-  if(is_coordinator) {
-    NETSTACK_ROUTING.root_start(); // Este nó vira o root da árvore RPL (DODAG)
-  }
 
   /* Liga a camada MAC (nesse caso, TSCH), que não inicia automaticamente */
   NETSTACK_MAC.on();
@@ -94,10 +77,7 @@ PROCESS_THREAD(node_process, ev, data)
 
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
-  
-    if (is_coordinator) {
-        LOG_INFO("Coordenador aguardando mensagens... Is_coordinator %d\n", is_coordinator);
-    } else {
+
         if (NETSTACK_ROUTING.node_is_reachable()) {
             LOG_INFO("Nó %d: Root alcançável, tentando enviar UDP.\n", node_id);
             NETSTACK_ROUTING.get_root_ipaddr(&coordinator_ipaddr);
@@ -109,32 +89,8 @@ PROCESS_THREAD(node_process, ev, data)
         } else {
             LOG_INFO("Nó %d: Root ainda NAO alcançável. Nao enviando.\n", node_id);
         }
-    }
     etimer_reset(&periodic_timer);
   }
-
-  /* Se a flag WITH_PERIODIC_ROUTES_PRINT estiver definida,
-     imprime a tabela de roteamento a cada minuto */
-#if WITH_PERIODIC_ROUTES_PRINT
-  {
-    static struct etimer et; // Timer para controlar o intervalo de impressão
-
-    etimer_set(&et, CLOCK_SECOND * 60); // Define o timer para 60 segundos
-
-    while(1) {
-      /* Imprime o número de entradas na tabela de rotas */
-#if (UIP_MAX_ROUTES != 0)
-      PRINTF("Routing entries: %d\n", uip_ds6_route_num_routes());
-#endif
-      /* Imprime o número de nós na topologia RPL (quando usa Source Routing) */
-#if (UIP_SR_LINK_NUM != 0)
-      PRINTF("Routing links: %d\n", uip_sr_num_nodes());
-#endif
-      PROCESS_YIELD_UNTIL(etimer_expired(&et)); // Espera até que o timer expire
-      etimer_reset(&et); // Reinicia o timer
-    }
-  }
-#endif /* WITH_PERIODIC_ROUTES_PRINT */
 
   PROCESS_END(); // Fim do processo Contiki
 }
