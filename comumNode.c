@@ -62,8 +62,7 @@ PROCESS_THREAD(node_process, ev, data)
   PROCESS_BEGIN(); // Início do processo Contiki
 
   /* Loga o início do processo com o ID do nó */
-    LOG_INFO("Iniciando processo do no %d\n", node_id);
-    LOG_INFO("Este no (%d) e um no comum\n", node_id);
+    LOG_INFO("Iniciando processo do no %d - Este no e um no comum\n", node_id);
 
 
   /* Liga a camada MAC (nesse caso, TSCH), que não inicia automaticamente */
@@ -79,15 +78,15 @@ PROCESS_THREAD(node_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
 
         if (NETSTACK_ROUTING.node_is_reachable()) {
-            LOG_INFO("Nó %d: Root alcançável, tentando enviar UDP.\n", node_id);
+            LOG_INFO("'%d' - Root alcancavel, tentando enviar UDP.\n", node_id);
             NETSTACK_ROUTING.get_root_ipaddr(&coordinator_ipaddr);
             LOG_INFO_6ADDR(&coordinator_ipaddr); // Imprime o endereço do root para verificar
             char msg[30];
             snprintf(msg, sizeof(msg), "Hello from node %d!", node_id);
             simple_udp_sendto(&udp_conn, msg, strlen(msg), &coordinator_ipaddr);
-            LOG_INFO("Nó %d: simple_udp_sendto() chamado.\n", node_id);
+            LOG_INFO("'%d' - ENVIANDO mensagem: '%s'\n", node_id, msg);
         } else {
-            LOG_INFO("Nó %d: Root ainda NAO alcançável. Nao enviando.\n", node_id);
+            LOG_INFO("'%d' - Root ainda NAO alcancavel. Nao enviando.\n", node_id);
         }
     etimer_reset(&periodic_timer);
   }

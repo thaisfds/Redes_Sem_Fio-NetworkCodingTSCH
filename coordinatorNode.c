@@ -40,7 +40,7 @@ udp_rx_callback(struct simple_udp_connection *c,
                 const uint8_t *data,
                 uint16_t datalen)
 {
-  LOG_INFO("Recebido '%s' de ", (char *)data);
+  LOG_INFO("'%d' - RECEBENDO '%s' de ", node_id, (char *)data);
   LOG_INFO_6ADDR(sender_addr);
   LOG_INFO_(" no porto %d\n", sender_port);
 
@@ -62,9 +62,7 @@ PROCESS_THREAD(node_process, ev, data)
 
 
   /* Loga o início do processo com o ID do nó */
-  LOG_INFO("Iniciando processo do no %d\n", node_id);
-
-    LOG_INFO("--- Este no (%d) e o coordenador\n", node_id);
+  LOG_INFO("Iniciando processo do no %d - Este no e um coordenador\n", node_id);
 
 
   /* Se este nó for o coordenador, inicia o roteador RPL como raiz */
@@ -83,7 +81,7 @@ PROCESS_THREAD(node_process, ev, data)
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   
-    LOG_INFO("Coordenador aguardando mensagens...\n");
+    LOG_INFO("'%d' - Coordenador aguardando mensagens...\n", node_id);
 
     etimer_reset(&periodic_timer);
   }
