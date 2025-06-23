@@ -2,6 +2,7 @@
 <simconf version="2023090101">
   <simulation>
     <title>TSCH + UDP</title>
+    <speedlimit>2.0</speedlimit>
     <randomseed>123456</randomseed>
     <motedelay_us>1000000</motedelay_us>
     <radiomedium>
@@ -118,9 +119,9 @@
       <skin>org.contikios.cooja.plugins.skins.TrafficVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.UDGMVisualizerSkin</skin>
       <skin>org.contikios.cooja.plugins.skins.MoteTypeVisualizerSkin</skin>
-      <viewport>13.181818181818182 0.0 0.0 13.181818181818182 435.0 433.99999999999994</viewport>
+      <viewport>9.833333333333332 0.0 0.0 9.833333333333332 324.0 434.0</viewport>
     </plugin_config>
-    <bounds x="1" y="1" height="923" width="882" z="1" />
+    <bounds x="1" y="1" height="923" width="661" z="1" />
   </plugin>
   <plugin>
     org.contikios.cooja.plugins.LogListener
@@ -129,7 +130,7 @@
       <formatted_time />
       <coloring />
     </plugin_config>
-    <bounds x="888" y="0" height="707" width="820" />
+    <bounds x="675" y="0" height="707" width="1033" />
   </plugin>
   <plugin>
     org.contikios.cooja.plugins.TimeLine
@@ -144,6 +145,6 @@
       <showLEDs />
       <zoomfactor>500.0</zoomfactor>
     </plugin_config>
-    <bounds x="888" y="713" height="209" width="824" z="2" />
+    <bounds x="676" y="713" height="209" width="1036" z="2" />
   </plugin>
 </simconf>
