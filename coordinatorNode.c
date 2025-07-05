@@ -14,22 +14,22 @@
 #define LOG_LEVEL LOG_CONF_LEVEL_APP
 
 #define UDP_PORT 1234
-#define SEND_INTERVAL (10 * CLOCK_SECOND)  // tempo entre envios
+#define SEND_INTERVAL (10 * CLOCK_SECOND)  // Time between transmissions
 
-/*-------------------------------- DEFINIÇÃO DOS PROCESSOS --------------------------------*/
+/*-------------------------------- PROCESS DEFINITIONS --------------------------------*/
 
-/* Define o processo chamado "RPL Node" */
+/* Defines the process named "RPL Node" */
 PROCESS(node_process, "RPL Node");
 
-/* Define que este processo será iniciado automaticamente ao ligar o nó */
+/* Defines that this process will be automatically started when the node boots */
 AUTOSTART_PROCESSES(&node_process);
 
-/* Adicione a conexão UDP */
+/* Add the UDP connection */
 static struct simple_udp_connection udp_conn;
 
-/* Variável para armazenar o endereço do coordenador */
+/* Variable to store the coordinator's IP address */
 
-/*-------------------------------- Funções de callback para UDP --------------------------------*/
+/*-------------------------------- UDP callback functions --------------------------------*/
 
 static void
 udp_rx_callback(struct simple_udp_connection *c,
@@ -40,54 +40,54 @@ udp_rx_callback(struct simple_udp_connection *c,
                 const uint8_t *data,
                 uint16_t datalen)
 {
-  LOG_INFO("'%d' - RECEBENDO '%s' de ", node_id, (char *)data);
+  LOG_INFO("'%d' - RECEIVING '%s' from ", node_id, (char *)data);
   LOG_INFO_6ADDR(sender_addr);
-  LOG_INFO_(" no porto %d\n", sender_port);
+  LOG_INFO_(" on port %d\n", sender_port);
 
-  // Se este nó for o coordenador, pode querer responder ou processar a mensagem
-  // Exemplo: se o coordenador recebe uma mensagem, ele pode logar
-  if (node_id == 5) { // Supondo que 5 é o coordenador
-      // Faça algo com a mensagem recebida pelo coordenador
+  // If this node is the coordinator, it might want to reply or process the message
+  // Example: if the coordinator receives a message, it can log it
+  if (node_id == 5) { // Assuming 5 is the coordinator
+      // Do something with the message received by the coordinator
   }
 }
 
-/*-------------------------------- Processo --------------------------------*/
+/*-------------------------------- Process --------------------------------*/
 
-/* Corpo do processo */
+/* Process body */
 PROCESS_THREAD(node_process, ev, data)
 {
-  static struct etimer periodic_timer; // Timer para envio periódico
+  static struct etimer periodic_timer; // Timer for periodic sending
 
-  PROCESS_BEGIN(); // Início do processo Contiki
-
-
-  /* Loga o início do processo com o ID do nó */
-  LOG_INFO("Iniciando processo do no %d - Este no e um coordenador\n", node_id);
+  PROCESS_BEGIN(); // Start of the Contiki process
 
 
-  /* Se este nó for o coordenador, inicia o roteador RPL como raiz */
+  /* Log the start of the process with the node ID */
+  LOG_INFO("Starting process for node %d - This node is a coordinator\n", node_id);
 
-    NETSTACK_ROUTING.root_start(); // Este nó vira o root da árvore RPL (DODAG)
 
-  /* Liga a camada MAC (nesse caso, TSCH), que não inicia automaticamente */
+  /* If this node is the coordinator, start the RPL router as root */
+
+    NETSTACK_ROUTING.root_start(); // This node becomes the root of the RPL tree (DODAG)
+
+  /* Turn on the MAC layer (in this case, TSCH), which does not start automatically */
   NETSTACK_MAC.on();
 
-  /* Inicializa a conexão UDP */
+  /* Initialize the UDP connection */
   simple_udp_register(&udp_conn, UDP_PORT, NULL, UDP_PORT, udp_rx_callback);
 
-  /* Define o timer para envio periódico */
+  /* Set the timer for periodic sending */
   etimer_set(&periodic_timer, SEND_INTERVAL);
 
   while(1) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&periodic_timer));
   
-    LOG_INFO("'%d' - Coordenador aguardando mensagens...\n", node_id);
+    LOG_INFO("'%d' - Coordinator waiting for messages...\n", node_id);
 
     etimer_reset(&periodic_timer);
   }
 
-  /* Se a flag WITH_PERIODIC_ROUTES_PRINT estiver definida,
-     imprime a tabela de roteamento a cada minuto */
+  /* If the WITH_PERIODIC_ROUTES_PRINT flag is defined,
+     print the routing table every minute */
 
-  PROCESS_END(); // Fim do processo Contiki
+  PROCESS_END(); // End of the Contiki process
 }
