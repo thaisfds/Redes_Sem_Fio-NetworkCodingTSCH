@@ -33,3 +33,4 @@ node_modules/   # Node.js
 venv/           # Python virtual environment
 __pycache__/    # Python compiled bytecode
 *.pyc           # Python compiled bytecode
+/cooja
