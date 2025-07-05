@@ -125,7 +125,7 @@ class TSCHNode:
                     simulation_events.append((time.time(), message.id, self.node_id, destination, "sending_direct"))
                 self.network.deliver_message(message, destination)
                 current_slot = self.schedule.get_current_slot()
-                if current_slot: # Certifica-se de que há um slot válido para registrar o canal
+                if current_slot: 
                     self.transmitted_messages_by_channel[current_slot.channel] = \
                         self.transmitted_messages_by_channel.get(current_slot.channel, 0) + 1
             else:
@@ -136,7 +136,7 @@ class TSCHNode:
                         simulation_events.append((time.time(), message.id, self.node_id, next_hop, "sending_forward"))
                     self.network.deliver_message(message, next_hop)
                     current_slot = self.schedule.get_current_slot()
-                    if current_slot: # Certifica-se de que há um slot válido para registrar o canal
+                    if current_slot: 
                         self.transmitted_messages_by_channel[current_slot.channel] = \
                             self.transmitted_messages_by_channel.get(current_slot.channel, 0) + 1
                 else:
@@ -179,11 +179,11 @@ class TSCHNode:
                     if next_hop and next_hop != message.source:
                         with simulation_events_lock:
                             simulation_events.append((time.time(), message.id, self.node_id, next_hop, "forwarding"))
-                        print(f"  Forwarding to next hop: {next_hop}. Hop count: {message.hop_count}")
+                        print(f"  Forwarding to next_hop: {next_hop}. Hop count: {message.hop_count}")
                         print(f"  Current Path: {message.path}") 
                         self.network.deliver_message(message, next_hop)
                     else:
-                        print(f"  WARNING: Cannot forward message {message.id}. No suitable next hop or message returning to source.")
+                        print(f"  WARNING: Cannot forward message {message.id}. No suitable next_hop or message returning to source.")
                 else:
                     print(f"  WARNING: Message {message.id} dropped due to hop limit ({message.hop_count}).")
             print("-------------------------------------\n")
@@ -225,7 +225,6 @@ class TSCHNetwork:
             with open(filename, 'r') as f:
                 lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
                 
-                # --- Parse Topology ---
                 self.num_nodes_config = int(lines[0])
                 current_line_idx = 1
                 self.topology_data = {}
@@ -236,7 +235,6 @@ class TSCHNetwork:
                     self.topology_data[node_id] = neighbors
                 current_line_idx += self.num_nodes_config
 
-                # --- Parse Simulation Commands ---
                 self.num_messages_config = int(lines[current_line_idx])
                 current_line_idx += 1
                 self.simulation_commands = []
@@ -440,14 +438,6 @@ class TSCHNetwork:
         node_colors = ['lightblue'] * len(G.nodes)
         node_sizes = [1000] * len(G.nodes)
         
-        # REMOVIDO: Bloco de código que destacava o nó 5
-        # if 5 in G.nodes:
-        #     node_ids_in_graph = list(G.nodes())
-        #     if 5 in node_ids_in_graph:
-        #         node_index_5 = node_ids_in_graph.index(5)
-        #         node_colors[node_index_5] = 'salmon'
-        #         node_sizes[node_index_5] = 1500
-
         nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=node_sizes)
         nx.draw_networkx_edges(G, pos, edge_color='gray', width=1.5)
         nx.draw_networkx_labels(G, pos, font_size=12, font_weight='bold')
@@ -484,14 +474,6 @@ class TSCHNetwork:
         node_colors_base = ['lightblue'] * len(G.nodes)
         node_sizes_base = [1000] * len(G.nodes)
         
-        # REMOVIDO: Bloco de código que destacava o nó 5
-        # if 5 in G.nodes:
-        #     node_ids_in_graph = list(G.nodes())
-        #     if 5 in node_ids_in_graph:
-        #         node_index_5 = node_ids_in_graph.index(5)
-        #         node_colors_base[node_index_5] = 'salmon'
-        #         node_sizes_base[node_index_5] = 1500
-
         nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_colors_base, node_size=node_sizes_base)
         nx.draw_networkx_edges(G, pos, ax=ax, edge_color='gray', width=1.5)
         nx.draw_networkx_labels(G, pos, ax=ax, font_size=12, font_weight='bold')
@@ -499,13 +481,26 @@ class TSCHNetwork:
         start_time = min(event[0] for event in simulation_events)
         normalized_events = sorted([(e[0] - start_time, e[1], e[2], e[3], e[4]) for e in simulation_events])
 
-        max_time = normalized_events[-1][0] if normalized_events else 0.1
-        animation_duration = max_time + 1.0 
+        # A duração total do tempo simulado que a animação representa
+        max_sim_time_covered = normalized_events[-1][0] if normalized_events else 0.1
         
-        fps = 5 
-        total_frames = int(animation_duration * fps)
+        # Fator pelo qual a duração real do GIF será esticada em relação ao tempo da simulação
+        # Por exemplo, 2.0 significa que 1 segundo de simulação será representado em 2 segundos de GIF
+        gif_speed_factor = 2.0 # Aumente este valor para deixar o GIF mais lento (e mais longo)
+                               # 1.0 = duração real da simulação no GIF
+                               # 0.5 = GIF mais rápido que a simulação
+
+        # O tempo total de animação real (duração do GIF)
+        total_animation_real_time = (max_sim_time_covered + 1.0) * gif_speed_factor
         
-        arrow_visibility_duration = 0.5 
+        # FPS do GIF gerado. Mantendo um FPS razoável para fluidez visual.
+        fps_gif = 10 # Por exemplo, 10 frames por segundo para o GIF
+
+        # Número total de frames necessários
+        total_frames = int(total_animation_real_time * fps_gif)
+        
+        # Duração que a seta permanece visível em segundos do TEMPO SIMULADO
+        arrow_visibility_duration_sim_time = 0.5 
 
         def update(frame):
             ax.clear()
@@ -514,11 +509,16 @@ class TSCHNetwork:
             nx.draw_networkx_edges(G, pos, ax=ax, edge_color='gray', width=1.5)
             nx.draw_networkx_labels(G, pos, ax=ax, font_size=12, font_weight='bold')
 
-            current_animation_time = frame / fps
+            # Calcula o tempo SIMULADO atual que este frame representa
+            # Divide 'frame' pelo 'fps_gif' para obter o tempo de animação,
+            # depois divide pelo 'gif_speed_factor' para mapear de volta ao tempo de simulação
+            current_sim_time = (frame / fps_gif) / gif_speed_factor 
             
             active_events = []
             for event_time, msg_id, from_node, to_node, event_type in normalized_events:
-                if current_animation_time >= event_time and (current_animation_time - event_time) < arrow_visibility_duration:
+                # Verifica se o evento está ativo para ser desenhado
+                # A condição usa o tempo SIMULADO
+                if current_sim_time >= event_time and (current_sim_time - event_time) < arrow_visibility_duration_sim_time:
                     active_events.append((msg_id, from_node, to_node, event_type))
 
             current_messages_info = []
@@ -548,7 +548,7 @@ class TSCHNetwork:
                     )
                     current_messages_info.append(f"M{msg_id}: {from_node}->{to_node}")
             
-            title_text = f"Animação da Rede TSCH\nTempo: {current_animation_time:.2f}s"
+            title_text = f"Animação da Rede TSCH\nTempo: {current_sim_time:.2f}s" 
             if current_messages_info:
                 title_text += "\nTráfego Ativo: " + ", ".join(current_messages_info[:3])
                 if len(current_messages_info) > 3:
@@ -556,14 +556,16 @@ class TSCHNetwork:
             ax.set_title(title_text, fontsize=14)
             return ax,
 
-        ani = FuncAnimation(fig, update, frames=total_frames, interval=(1000/fps), blit=False, repeat=False)
+        # 'interval' na FuncAnimation determina o atraso entre os frames *no GIF*, em milissegundos
+        # Para que o GIF rode a 'fps_gif', o intervalo é 1000 / fps_gif
+        ani = FuncAnimation(fig, update, frames=total_frames, interval=(1000/fps_gif), blit=False, repeat=False)
         
         plt.close(fig) 
 
         if save_path:
             try:
                 print(f"Salvando animação como GIF... (isso pode demorar)")
-                writer_gif = plt.matplotlib.animation.PillowWriter(fps=fps)
+                writer_gif = plt.matplotlib.animation.PillowWriter(fps=fps_gif) # Salva com o fps_gif
                 ani.save(save_path, writer=writer_gif)
             except Exception as e:
                 print(f"Erro ao salvar animação GIF para '{save_path}': {e}")
