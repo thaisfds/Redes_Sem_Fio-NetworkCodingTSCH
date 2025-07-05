@@ -1,3 +1,3 @@
 ### Para rodar o simulador
-cd ../contiki-ng/tools/cooja/
+cd ../../contiki-ng/tools/cooja/
 ./gradlew run

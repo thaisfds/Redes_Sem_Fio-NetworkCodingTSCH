@@ -1,7 +1,7 @@
 CONTIKI_PROJECT = node
 all: $(CONTIKI_PROJECT)
 
-CONTIKI=../contiki-ng
+CONTIKI=../../contiki-ng
 
 PLATFORMS_EXCLUDE = sky z1 native
 BOARDS_EXCLUDE = srf06/cc13x0 launchpad/cc1310 launchpad/cc1350 sensortag/cc2650 sensortag/cc1350
