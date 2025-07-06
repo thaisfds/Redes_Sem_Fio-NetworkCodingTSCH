@@ -1,0 +1,62 @@
+0
+0
+18
+1 2 7 10
+2 1 3 8 11
+3 2 4 9 12
+4 3 5 13
+5 4 6 14
+6 5 7 15
+7 1 6 8 16
+8 2 7 9 17
+9 3 8 10 18
+10 1 9 11
+11 2 10 12
+12 3 11 13
+13 4 12 14
+14 5 13 15
+15 6 14 16
+16 7 15 17
+17 8 16 18
+18 9 17
+40
+1 18 [M1: Extremo -> Extremo]
+18 1 [M2: Extremo -> Extremo Inv]
+3 16 [M3: Meio-Curto A]
+16 3 [M4: Meio-Curto B]
+5 15 [M5: Curto Densa A]
+15 5 [M6: Curto Densa B]
+7 13 [M7: Diagonal Central A]
+13 7 [M8: Diagonal Central B]
+10 2 [M9: Atravessa Topo]
+2 10 [M10: Atravessa Topo Inv]
+4 17 [M11: Quase Diagonal A]
+17 4 [M12: Quase Diagonal B]
+11 18 [M13: Caminho Lateral A]
+18 11 [M14: Caminho Lateral B]
+6 12 [M15: Pulo Curto Aleatório A]
+12 6 [M16: Pulo Curto Aleatório B]
+9 14 [M17: Proximidade Central A]
+14 9 [M18: Proximidade Central B]
+1 9 [M19: Canto para Centro]
+9 1 [M20: Centro para Canto]
+2 17 [M21: Longo Cruzado A]
+17 2 [M22: Longo Cruzado B]
+3 18 [M23: Longo C]
+18 3 [M24: Longo D]
+4 16 [M25: Longo E]
+16 4 [M26: Longo F]
+5 11 [M27: Curto Interno A]
+11 5 [M28: Curto Interno B]
+6 10 [M29: Curto Borda Diagonal A]
+10 6 [M30: Curto Borda Diagonal B]
+7 12 [M31: Pulo Interno A]
+12 7 [M32: Pulo Interno B]
+8 15 [M33: Central para Borda]
+15 8 [M34: Borda para Central]
+13 18 [M35: Quase Final A]
+18 13 [M36: Quase Final B]
+1 1 [M37: Auto-envio 1]
+8 8 [M38: Auto-envio 2]
+18 18 [M39: Auto-envio 3]
+9 13 [M40: Teste Extra]

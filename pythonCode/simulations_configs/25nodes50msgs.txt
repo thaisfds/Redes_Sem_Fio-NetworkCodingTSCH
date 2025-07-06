@@ -1,0 +1,79 @@
+0
+0
+25
+1 2 
+2 1 3 
+3 2 4 8 
+4 3 5 9 
+5 4 6 
+6 5 7 10 
+7 6 8 
+8 3 7 9 13 
+9 4 8 10 
+10 6 9 11 
+11 10 12 16 
+12 11 13 
+13 8 12 14 17 
+14 13 15 
+15 14 16 
+16 11 15 17 20 
+17 13 16 18 
+18 17 19 21 
+19 18 20 
+20 16 19 21 
+21 18 20 22 
+22 21 23 
+23 22 24 
+24 23 25 
+25 24 
+50
+1 25 [Msg-01 Extremo Superior -> Inferior]
+25 1 [Msg-02 Extremo Inferior -> Superior]
+2 19 [Msg-03 Salto Curto A]
+19 2 [Msg-04 Salto Curto B]
+5 22 [Msg-05 Diagonal Longa 1]
+22 5 [Msg-06 Diagonal Longa 2]
+10 16 [Msg-07 Atravessa Meio A]
+16 10 [Msg-08 Atravessa Meio B]
+3 15 [Msg-09 Central para Longe A]
+15 3 [Msg-10 Central para Longe B]
+7 24 [Msg-11 Curva Longa A]
+24 7 [Msg-12 Curva Longa B]
+11 18 [Msg-13 Salto Vertical A]
+18 11 [Msg-14 Salto Vertical B]
+13 20 [Msg-15 Centro para Extremo]
+20 13 [Msg-16 Extremo para Centro]
+4 23 [Msg-17 Quase Diagonal A]
+23 4 [Msg-18 Quase Diagonal B]
+1 13 [Msg-19 Canto para Centro]
+13 1 [Msg-20 Centro para Canto]
+6 21 [Msg-21 Diagonal Externa A]
+21 6 [Msg-22 Diagonal Externa B]
+9 17 [Msg-23 Conexão Interna A]
+17 9 [Msg-24 Conexão Interna B]
+14 25 [Msg-25 Extremidade Inferior]
+25 14 [Msg-26 Extremidade Inferior Inv]
+1 10 [Msg-27 Hub para Meio A]
+10 1 [Msg-28 Meio para Hub A]
+2 11 [Msg-29 Hub para Meio B]
+11 2 [Msg-30 Meio para Hub B]
+3 12 [Msg-31 Linha A]
+12 3 [Msg-32 Linha B]
+4 13 [Msg-33 Linha C]
+13 4 [Msg-34 Linha D]
+5 14 [Msg-35 Linha E]
+14 5 [Msg-36 Linha F]
+16 23 [Msg-37 Base A]
+23 16 [Msg-38 Base B]
+17 24 [Msg-39 Base C]
+24 17 [Msg-40 Base D]
+18 25 [Msg-41 Base E]
+25 18 [Msg-42 Base F]
+19 1 [Msg-43 De baixo para cima A]
+1 19 [Msg-44 De baixo para cima B]
+20 2 [Msg-45 De baixo para cima C]
+2 20 [Msg-46 De baixo para cima D]
+1 1 [Msg-47 Auto Teste 1]
+13 13 [Msg-48 Auto Teste 2]
+25 25 [Msg-49 Auto Teste 3]
+7 7 [Msg-50 Auto Teste 4]
