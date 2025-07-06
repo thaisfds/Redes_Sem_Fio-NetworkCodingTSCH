@@ -6,7 +6,6 @@ import shutil
 
 def clean_logs_folder(logs_path):
     if os.path.exists(logs_path):
-        print(f"Limpando a pasta de logs: '{logs_path}'...")
         for item in os.listdir(logs_path):
             item_path = os.path.join(logs_path, item)
             try:
@@ -20,7 +19,6 @@ def clean_logs_folder(logs_path):
         print(f"A pasta de logs '{logs_path}' não existe. Criando...")
         os.makedirs(logs_path)
     
-    print("Pasta de logs limpa/criada.")
 
 
 def run_all_simulations():
@@ -48,11 +46,16 @@ def run_all_simulations():
         sys.exit(0)
 
     simulation_scripts = {
-        "NORMAL": 'tsch_udp_simulation.py',
-        "NETWORK_CODING": 'tsch_udp_nc_simulation.py'
+        "TSCH WITH UDP": 'tsch_udp_simulation.py',
+        "TSCH WITH UDP AND NETWORK CODING": 'tsch_udp_nc_simulation.py'
     }
 
-    print(f"Iniciando a execução de {len(config_files)} simulações para cada modo de operação ({', '.join(simulation_scripts.keys())}).")
+    results = {
+        "TSCH WITH UDP": [],
+        "TSCH WITH UDP AND NETWORK CODING": []
+    }
+
+    print(f"Iniciando a execução de {len(config_files)} simulações para cada modo de operação.\n")
     print("=" * 70)
 
     for mode, script_name in simulation_scripts.items():
@@ -62,44 +65,46 @@ def run_all_simulations():
             print(f"\nAVISO: Script '{script_name}' não encontrado em '{project_root}'. Pulando este modo de simulação.")
             continue
 
-        print(f"\n--- INICIANDO SIMULAÇÕES NO MODO: {mode} ({script_name}) ---")
-        print("-" * 50)
-
+        print(f"\n{mode}")
+        
         for i, config_file in enumerate(config_files):
             full_config_filepath = os.path.join(configs_path, config_file)
             
-            print(f"\n--- RODANDO {mode} SIMULAÇÃO {i+1}/{len(config_files)}: '{config_file}' ---")
-            start_time = time.time()
-
+            file_base_name = os.path.splitext(config_file)[0]
+            
             try:
-                result = subprocess.run(
+                # Execute o subprocesso e capture a saída
+                subprocess.run(
                     ['python3', script_path, full_config_filepath],
                     check=True, 
                     text=True,
-                    capture_output=True
+                    capture_output=True # Captura stdout e stderr
                 )
-                print(f"--- SIMULAÇÃO '{config_file}' no modo {mode} CONCLUÍDA COM SUCESSO! ---")
-            except subprocess.CalledProcessError as e:
-                print(f"!!! ERRO NA SIMULAÇÃO '{config_file}' no modo {mode} !!!")
-                print(f"Código de saída: {e.returncode}")
-                print(f"--- STDOUT do subprocesso:\n{e.stdout}")
-                print(f"--- STDERR do subprocesso:\n{e.stderr}")
-                print("Continuando para a próxima simulação...")
+                print(f"Simulation {i+1} ({file_base_name}): SUCCESS")
+                results[mode].append(True)
+            except subprocess.CalledProcessError:
+                print(f"Simulation {i+1} ({file_base_name}): FAILURE")
+                results[mode].append(False)
             except FileNotFoundError:
                 print(f"!!! ERRO: O executável 'python3' ou o script '{script_name}' não foi encontrado.")
                 print("Certifique-se de que o Python está no seu PATH e o script está no diretório correto.")
                 sys.exit(1)
             except Exception as e:
                 print(f"!!! Ocorreu um erro inesperado ao rodar a simulação '{config_file}' no modo {mode}: {e} !!!")
-                print("Continuando para a próxima simulação...")
+                results[mode].append(False) # Considera falha qualquer outro erro
 
-            end_time = time.time()
-            print(f"Tempo total para '{config_file}' no modo {mode}: {end_time - start_time:.2f} segundos.")
-            print("-" * 50)
-            
     print("\nTODAS AS SIMULAÇÕES FORAM PROCESSADAS.")
-    print(f"Verifique a pasta '{log_dir_name}/' para os arquivos de saída de cada simulação.")
-    print("Cada simulação terá seu próprio arquivo de log e resultados visuais.")
+    print("=" * 70)
+
+    total_success = 0
+    for mode, outcomes in results.items():
+        success_count = sum(outcomes)
+        print(f"TOTAL OF SUCCESS {mode}: {success_count}")
+        total_success += success_count
+    
+    print(f"TOTAL OF SUCCESS: {total_success}")
+    print("=" * 70)
+    print(f"\nVerifique a pasta '{log_dir_name}/' para os arquivos de saída de cada simulação (logs detalhados, imagens e GIFs).")
 
 
 if __name__ == "__main__":

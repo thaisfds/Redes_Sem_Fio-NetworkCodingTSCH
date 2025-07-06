@@ -828,14 +828,14 @@ class TSCHNetwork:
             results_csv_writer.writerow(row_data)
             print(f"Dados da simulação adicionados ao CSV: {row_data}")
 
-        topology_image_path_final = os.path.join(output_base_path, f"{output_file_base_name}_nc_topology_final.png")
+        topology_image_path_final = os.path.join(output_base_path, f"{output_file_base_name}_topology_final_nc.png")
         self.plot_network_topology(save_path=topology_image_path_final)
-        print(f"Imagem da topologia final salva como '{output_file_base_name}_nc_topology_final.png'.")
+        print(f"Imagem da topologia final salva como '{output_file_base_name}_topology_final_nc.png'.")
 
-        gif_output_path = os.path.join(output_base_path, f"{output_file_base_name}_nc_traffic.gif")
+        gif_output_path = os.path.join(output_base_path, f"{output_file_base_name}_traffic_nc.gif")
         print("Gerando animação da rede. Isso pode levar um tempo...")
         self.animate_network_traffic(save_path=gif_output_path)
-        print(f"Animação concluída! O arquivo '{output_file_base_name}_nc_traffic.gif' foi gerado.")
+        print(f"Animação concluída! O arquivo '{output_file_base_name}_traffic_nc.gif' foi gerado.")
 
     def _process_and_send_split_message(self, source_node: 'TSCHNode', cmd: Dict, nc_precursor_commands_for_coder_this_run: List[Dict]):
         original_source_id = cmd["source"]
@@ -1100,7 +1100,7 @@ def main():
 
     input_filename_without_ext = os.path.splitext(os.path.basename(input_filepath))[0]
 
-    log_filename = f"{input_filename_without_ext}_nc_log.txt"
+    log_filename = f"{input_filename_without_ext}_log_nc.txt"
     log_filepath = os.path.join(output_base_path, log_filename)
 
     results_csv_filepath = os.path.join(output_base_path, "simulation_results.csv")
