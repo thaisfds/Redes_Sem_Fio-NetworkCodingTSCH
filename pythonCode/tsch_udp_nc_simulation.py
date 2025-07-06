@@ -5,7 +5,7 @@ from collections import deque
 from enum import Enum
 from dataclasses import dataclass, field
 import dataclasses
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set, Optional, Union
 import re
 import sys
 import os
@@ -19,7 +19,6 @@ from matplotlib.animation import FuncAnimation
 # -----------------------------------------------------------
 
 # Lista global para armazenar os eventos da simulação para a animação
-# Cada evento será uma tupla: (timestamp, msg_id_for_animation, from_node, to_node, event_type, optional_data_for_animation)
 simulation_events = []
 simulation_events_lock = threading.Lock()
 
@@ -45,17 +44,19 @@ class NodeState(Enum):
 
 @dataclass
 class Message:
-    id: int # ID local do nó transmissor
+    id: int
     source: int
-    destination: int
-    data: str # Agora espera string binária como "010101"
+    destination: Union[int, List[int]]
+    data: str
     timestamp: float
     hop_count: int = 0
     path: List[int] = field(default_factory=list)
     is_nc_coded: bool = False
-    original_message_ids: List[int] = field(default_factory=list) # IDs globais das mensagens originais
+    original_message_ids: List[int] = field(default_factory=list)
     nc_intended_destinations: List[int] = field(default_factory=list)
     is_nc_precursor: bool = False
+    # NOVO: Adiciona o destino final original da mensagem precursora, útil para o coder
+    nc_precursor_original_final_dest: Optional[Union[int, List[int]]] = None 
 
 
 class TSCHSlot:
@@ -96,6 +97,7 @@ class TSCHNode:
         self.message_counter = 0
         self.lock = threading.Lock()
         self.transmitted_messages_by_channel: Dict[int, int] = {}
+        # Buffer NC armazena mensagens precursoras por seu global_id original
         self.nc_buffer: Dict[int, Message] = {}
 
 
@@ -105,10 +107,12 @@ class TSCHNode:
     def add_neighbor(self, neighbor_id: int):
         self.neighbors.add(neighbor_id)
 
-    def send_message(self, destination: int, data: str, is_nc_precursor: bool = False,
+    def send_message(self, destination: Union[int, List[int]], data: str, is_nc_precursor: bool = False,
                      original_message_global_id: Optional[int] = None,
                      is_nc_coded: bool = False, nc_intended_destinations: Optional[List[int]] = None,
-                     original_message_ids_coded: Optional[List[int]] = None):
+                     original_message_ids_coded: Optional[List[int]] = None,
+                     # NOVO: Para precursor, qual era o destino final original completo (seja int ou list)
+                     nc_precursor_original_final_dest: Optional[Union[int, List[int]]] = None): 
         with self.lock:
             self.message_counter += 1
             current_message_local_id = self.message_counter
@@ -122,35 +126,45 @@ class TSCHNode:
             message = Message(
                 id=current_message_local_id,
                 source=self.node_id,
-                destination=destination,
+                destination=destination, # Para precursor, é o CODER. Para regular, é o destino(s) final(is).
                 data=data,
                 timestamp=time.time(),
                 path=[self.node_id],
                 is_nc_precursor=is_nc_precursor,
                 original_message_ids=msg_original_ids,
                 nc_intended_destinations=nc_intended_destinations if nc_intended_destinations else [],
-                is_nc_coded=is_nc_coded
+                is_nc_coded=is_nc_coded,
+                # Atribui o destino final original se for precursor.
+                nc_precursor_original_final_dest=nc_precursor_original_final_dest
             )
 
-            if not message.is_nc_precursor:
+            if not message.is_nc_precursor: # Só conta mensagens "originais" (não o hop para o coder)
                 self.network.total_messages_initiated += 1
 
 
             print(f"\n--- Node {self.node_id} - Sending Message ---")
             print(f"  Message ID (local): {message.id}")
             print(f"  Source: {self.node_id}")
-            print(f"  Destination: {destination}")
+            print(f"  Destination(s): {message.destination}")
             print(f"  Data: '{message.data}'")
             print(f"  Initial Path: {message.path}")
             print(f"  Is NC Precursor: {message.is_nc_precursor}")
             print(f"  Is NC Coded: {message.is_nc_coded}")
             print(f"  Original Message Global IDs: {message.original_message_ids}")
             print(f"  NC Intended Dests: {message.nc_intended_destinations}")
+            print(f"  NC Precursor Original Final Dest: {message.nc_precursor_original_final_dest}") # NOVO LOG
 
-            next_hop = self.get_next_hop(destination)
+            # Roteamento: determine o próximo hop com base no 'destination' da função (não do objeto Message)
+            next_hop_for_routing = None
+            if isinstance(destination, list) and destination: # Se o destino imediato é uma lista (ex: multicast direto)
+                # Para fins de cálculo do next_hop, pegamos o primeiro da lista.
+                # O deliver_message lidará com a entrega para todos os destinos na lista.
+                next_hop_for_routing = self.get_next_hop(destination[0]) 
+            elif isinstance(destination, int): # Se o destino imediato é um único nó
+                next_hop_for_routing = self.get_next_hop(destination)
 
-            if next_hop:
-                print(f"  Forwarding via next hop: {next_hop}.")
+            if next_hop_for_routing:
+                print(f"  Forwarding via next hop: {next_hop_for_routing}.")
                 event_type = "sending_regular"
                 optional_data_for_animation = None 
                 if message.is_nc_precursor:
@@ -162,14 +176,19 @@ class TSCHNode:
                     optional_data_for_animation = message.nc_intended_destinations
 
                 with simulation_events_lock:
-                    simulation_events.append((time.time(), message.id, self.node_id, next_hop, event_type, optional_data_for_animation))
-                self.network.deliver_message(message, next_hop)
+                    simulation_events.append((time.time(), message.id, self.node_id, next_hop_for_routing, event_type, optional_data_for_animation))
+                
+                # A função deliver_message recebe o objeto Message completo e o *destino imediato*.
+                # Se `destination` (parâmetro da send_message) é uma lista, deliver_message já sabe como lidar.
+                # Se `destination` é um int (como o Coder), deliver_message lida com unicast.
+                self.network.deliver_message(message, destination) # Passa o destino original ou coder
+                
                 current_slot = self.schedule.get_current_slot()
                 if current_slot:
                     self.transmitted_messages_by_channel[current_slot.channel] = \
                         self.transmitted_messages_by_channel.get(current_slot.channel, 0) + 1
             else:
-                print(f"  ERROR: No route to destination {destination} from node {self.node_id}.")
+                print(f"  ERROR: No route to destination {message.destination} from node {self.node_id}.")
                 self.network.messages_not_sent_no_route += 1
             print("-----------------------------------\n")
 
@@ -194,27 +213,46 @@ class TSCHNode:
 
             original_commands_map = {cmd["global_id"]: cmd for cmd in original_nc_message_commands}
 
+            # Lógica de verificação do buffer para saber se é hora de XORar:
+            # Precisa ter recebido as mensagens precursoras de TODOS os NC Senders relevantes
+            # para esta rodada de NC.
+            
+            # Aqui, original_nc_message_commands contém os comandos (origem, destino_final, data, global_id)
+            # que foram classificados como NC-beneficial e enviados para o coder.
+            # O coder deve XORar todas elas assim que todas chegam.
+            
+            # Conta quantos precursores *realmente elegíveis para esta rodada* o coder está esperando
+            num_expected_precursors_in_this_cycle = len(original_nc_message_commands)
+            
+            # Verifica se o buffer tem mensagens para todos os global_ids que foram enviados como precursores
             all_expected_precursors_received = True
-            for original_cmd in original_nc_message_commands:
-                if original_cmd["global_id"] not in self.nc_buffer:
-                    all_expected_precursors_received = False
-                    break
+            if num_expected_precursors_in_this_cycle == 0: # Não há mensagens para codificar
+                all_expected_precursors_received = False
+            else:
+                for original_cmd in original_nc_message_commands:
+                    if original_cmd["global_id"] not in self.nc_buffer:
+                        all_expected_precursors_received = False
+                        break
 
-            if all_expected_precursors_received and len(self.nc_buffer) >= 2:
+            if all_expected_precursors_received and len(self.nc_buffer) >= 2: # Mínimo 2 mensagens para XOR
                 print(f"  Node {self.node_id} (Coder) has all expected NC precursor messages! Performing XOR.")
                 messages_to_xor_data = []
                 original_global_ids_for_nc = []
-                nc_intended_destinations = []
+                nc_intended_destinations = [] # Coleta os destinos finais de TODAS as mensagens XORadas
 
                 for global_id in sorted(self.nc_buffer.keys()):
                     precursor_msg = self.nc_buffer[global_id]
                     messages_to_xor_data.append(precursor_msg.data)
                     original_global_ids_for_nc.append(global_id)
 
-                    if global_id in original_commands_map:
-                        nc_intended_destinations.append(original_commands_map[global_id]["destination"])
+                    # Pega o destino final original da mensagem precursora do objeto Message
+                    original_dest_from_precursor = precursor_msg.nc_precursor_original_final_dest
+                    if isinstance(original_dest_from_precursor, list):
+                        nc_intended_destinations.extend(original_dest_from_precursor)
+                    elif original_dest_from_precursor is not None:
+                        nc_intended_destinations.append(original_dest_from_precursor)
                     else:
-                        print(f"  WARNING: Coder cannot find original command for global ID {global_id}. Skipping its destination.")
+                        print(f"  WARNING: Coder precursor msg {precursor_msg.id} has no valid Original Final Dest. Skipping its destination.")
                 
                 if len(messages_to_xor_data) < 2:
                     print(f"  WARNING: Not enough messages in buffer for XOR. Need at least 2. Got: {len(messages_to_xor_data)}")
@@ -245,7 +283,7 @@ class TSCHNode:
                     path=[self.node_id],
                     is_nc_coded=True,
                     original_message_ids=list(set(original_global_ids_for_nc)),
-                    nc_intended_destinations=list(set(nc_intended_destinations))
+                    nc_intended_destinations=list(set(nc_intended_destinations)) # Garante destinos únicos
                 )
                 self.message_counter = coded_message_id
 
@@ -253,7 +291,7 @@ class TSCHNode:
                 with simulation_events_lock:
                     simulation_events.append((time.time(), coded_message.id, self.node_id, coded_message.destination, "sending_nc_coded", coded_message.nc_intended_destinations))
                 
-                self.network.deliver_message(coded_message, coded_message.destination)
+                self.network.deliver_message(coded_message, coded_message.destination) 
                 
                 current_slot = self.schedule.get_current_slot()
                 if current_slot:
@@ -263,19 +301,20 @@ class TSCHNode:
                 self.network.total_nc_coded_messages_sent += 1
                 self.nc_buffer.clear()
             else:
-                print(f"  Node {self.node_id} (Coder) waiting for more NC precursor messages. Buffer size: {len(self.nc_buffer)}. Expected senders: {len(self.network.nc_senders_nodes_list)}")
+                print(f"  Node {self.node_id} (Coder) waiting for more NC precursor messages. Buffer size: {len(self.nc_buffer)}. Expected in this cycle: {num_expected_precursors_in_this_cycle}")
+
 
     def receive_message(self, message: Message):
         with self.lock:
             print(f"\n--- Node {self.node_id} - Receiving Message ---")
             print(f"  Message ID (local): {message.id}")
             print(f"  Source: {message.source}")
-            print(f"  Destination: {message.destination}")
+            print(f"  Destination(s): {message.destination}")
             print(f"  Is NC Precursor: {message.is_nc_precursor}")
             print(f"  Is NC Coded: {message.is_nc_coded}")
             print(f"  Original Message Global IDs: {message.original_message_ids}")
             print(f"  NC Intended Dests: {message.nc_intended_destinations}")
-
+            print(f"  NC Precursor Original Final Dest: {message.nc_precursor_original_final_dest}") # NOVO LOG
 
             if self.node_id == self.network.nc_coder_node_id and message.is_nc_precursor:
                 print(f"  Node {self.node_id} (Coder) received NC precursor message {message.id} from {message.source} (Data: '{message.data}').")
@@ -299,14 +338,25 @@ class TSCHNode:
                     decoded_original_data_for_this_node = "N/A - Original Data Not Directly Available"
                     decoded_original_id_for_this_node = None
 
-                    for original_global_id in message.original_message_ids:
-                        if original_global_id in self.network.original_message_data_map:
-                            original_info = self.network.original_message_data_map[original_global_id]
-                            if original_info["destination"] == self.node_id:
-                                decoded_original_data_for_this_node = original_info["data"]
-                                decoded_original_id_for_this_node = original_global_id
-                                break
+                    # NOVO: Ao decodificar, o nó precisa saber qual era o data original que ele esperava
+                    # para mostrar no log. O message.nc_intended_destinations lista os destinos finais
+                    # que se beneficiam do NC. Usaremos o original_message_data_map para encontrar
+                    # qual dado original corresponde a este nó.
                     
+                    # original_message_ids da mensagem NC-coded contém os IDs globais de todas as mensagens XORadas.
+                    # Precisamos encontrar QUAL dessas mensagens era destinada a este nó.
+                    for original_global_id_in_nc in message.original_message_ids:
+                        if original_global_id_in_nc in self.network.original_message_data_map:
+                            original_info = self.network.original_message_data_map[original_global_id_in_nc]
+                            original_dest = original_info["destination"]
+                            
+                            # Se este nó é o destino original (ou um dos destinos na lista)
+                            if (isinstance(original_dest, int) and original_dest == self.node_id) or \
+                               (isinstance(original_dest, list) and self.node_id in original_dest):
+                                decoded_original_data_for_this_node = original_info["data"]
+                                decoded_original_id_for_this_node = original_global_id_in_nc
+                                break # Encontrou o dado original que este nó decodificou
+
                     if decoded_original_id_for_this_node is None:
                          print(f"  WARNING: Could not identify specific original message to decode for node {self.node_id} from NC message {message.id}.")
 
@@ -314,7 +364,7 @@ class TSCHNode:
                     decoded_msg_for_this_node = Message(
                         id=message.id,
                         source=message.source,
-                        destination=self.node_id,
+                        destination=self.node_id, # Destino da mensagem decodificada é o próprio nó
                         data=f"DECODED '{decoded_original_data_for_this_node}' (from NC msg '{message.data}')",
                         timestamp=time.time(),
                         hop_count=message.hop_count,
@@ -338,11 +388,18 @@ class TSCHNode:
                 return
 
 
-            if message.destination != self.node_id:
-                self.network.total_forwarded_messages += 1
+            # Lógica para encaminhamento ou recebimento final de mensagens regulares
+            is_final_destination = False
+            if isinstance(message.destination, list):
+                if self.node_id in message.destination:
+                    is_final_destination = True
+            elif self.node_id == message.destination: # Unicast simples
+                is_final_destination = True
 
-            if message.destination == self.node_id:
-                message.path.append(self.node_id)
+
+            if is_final_destination:
+                if self.node_id not in message.path:
+                    message.path.append(self.node_id)
                 self.received_messages.append(message)
                 with simulation_events_lock:
                     animation_msg_id = message.id
@@ -350,16 +407,28 @@ class TSCHNode:
                     simulation_events.append((time.time(), animation_msg_id, last_hop_node, self.node_id, "received_final"))
                 print(f"  SUCCESS: Node {self.node_id} received final message: '{message.data}'")
                 print(f"  Final Path: {message.path}")
-            else:
+            else: # Este nó é um intermediário
                 print(f"  Node {self.node_id} (intermediate) is forwarding message {message.id}.")
                 message.hop_count += 1
                 message.path.append(self.node_id)
                 if message.hop_count < 5:
-                    next_hop = self.get_next_hop(message.destination)
+                    next_hop_target = None
+                    if isinstance(message.destination, list):
+                        for dest_id in message.destination:
+                            if dest_id != self.node_id and dest_id not in message.path:
+                                next_hop_target = dest_id
+                                break
+                    elif isinstance(message.destination, int):
+                        next_hop_target = message.destination
+                    
+                    next_hop = None
+                    if next_hop_target:
+                        next_hop = self.get_next_hop(next_hop_target)
+                    
                     if next_hop and next_hop != message.source:
+                        self.network.total_forwarded_messages += 1
                         with simulation_events_lock:
-                            animation_msg_id = message.id
-                            simulation_events.append((time.time(), animation_msg_id, self.node_id, next_hop, "forwarding"))
+                            simulation_events.append((time.time(), message.id, self.node_id, next_hop, "forwarding"))
                         print(f"  Forwarding to next_hop: {next_hop}. Hop count: {message.hop_count}")
                         print(f"  Current Path: {message.path}")
                         self.network.deliver_message(message, next_hop)
@@ -395,20 +464,23 @@ class TSCHNetwork:
         self.num_nodes_config = 0
         self.num_messages_config = 0
         self.available_channels = list(range(10))
-
+        
+        # --- Inicialização CORRETA das variáveis de Network Coding ---
         self.nc_coder_node_id: Optional[int] = None
         self.nc_senders_nodes_list: List[int] = []
         self.broadcast_id = -1
         self.total_nc_coded_messages_sent = 0
+        self.messages_dropped_not_intended_nc_dest = 0 # A métrica que causou o erro
 
+        self.original_message_data_map: Dict[int, Dict] = {} # Usado para dados originais em NC
+        self.network_coding_enabled: Optional[int] = 0 # Será 1 se o cabeçalho NC for lido
+
+        # --- Contadores de Métricas Comuns ---
         self.total_messages_initiated = 0
         self.total_forwarded_messages = 0
         self.messages_not_sent_no_route = 0
         self.messages_dropped_hop_limit = 0
         self.messages_dropped_no_forward_path = 0
-        self.messages_dropped_not_intended_nc_dest = 0
-
-        self.original_message_data_map: Dict[int, Dict] = {}
 
 
     def add_node(self, node: TSCHNode):
@@ -416,66 +488,101 @@ class TSCHNetwork:
         node.set_network(self)
 
     def parse_config_file(self, filename: str):
+        """
+        Lê e parseia o arquivo de configuração.
+        Suporta múltiplos destinos na mesma linha para comandos de mensagem.
+        Sempre espera e lê o cabeçalho NC nas duas primeiras linhas para o script NC.
+        """
         try:
             with open(filename, 'r') as f:
                 lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-                if len(lines) < 2:
-                    print(f"ERROR: Configuration file '{filename}' has less than 2 lines. It must specify the NC Coder node and NC Sender nodes.")
+                if len(lines) < 3: # Para script NC, deve ter pelo menos 3 linhas (coder, senders, num_nodes_config)
+                    print(f"ERROR: Configuration file '{filename}' for NC simulation must contain NC Coder and Senders on the first two lines, followed by topology info.")
                     sys.exit(1)
-
+                
+                # Para o script NC, SEMPRE esperamos o cabeçalho NC nas 2 primeiras linhas.
                 self.nc_coder_node_id = int(lines[0])
                 self.nc_senders_nodes_list = [int(x) for x in lines[1].split()]
+                self.network_coding_enabled = 1 # Marcar que NC está sendo usado
+                
+                lines_to_read_topology_from = lines[2:] # Agora, o restante das linhas (a partir do num_nodes_config)
+                start_parsing_from_line_index = 0 # O índice inicial dentro de lines_to_read_topology_from
 
-                lines = lines[2:]
-
-                self.num_nodes_config = int(lines[0])
-                current_line_idx = 1
+                print(f"INFO: NC Header found. Coder: {self.nc_coder_node_id}, Senders: {self.nc_senders_nodes_list}")
+                
+                # O 'num_nodes_config' é sempre a PRIMEIRA linha do BLOCO DE TOPOLOGIA (após o cabeçalho NC).
+                self.num_nodes_config = int(lines_to_read_topology_from[start_parsing_from_line_index])
+                current_line_idx = start_parsing_from_line_index + 1 # Começa a ler a topologia em si
                 self.topology_data = {}
                 for i in range(self.num_nodes_config):
-                    parts = [int(p) for p in lines[current_line_idx + i].split()]
+                    parts = [int(p) for p in lines_to_read_topology_from[current_line_idx + i].split()]
                     node_id = parts[0]
                     neighbors = parts[1:]
                     self.topology_data[node_id] = neighbors
-                current_line_idx += self.num_nodes_config
+                current_line_idx += self.num_nodes_config # current_line_idx agora é o índice do num_command_lines
 
-                self.num_messages_config = int(lines[current_line_idx])
+                num_command_lines = int(lines_to_read_topology_from[current_line_idx]) 
                 current_line_idx += 1
+                
                 self.simulation_commands = []
                 self.original_message_commands = []
-                self.original_message_data_map = {}
+                self.original_message_data_map = {} # Reinicia o mapa, importante para NC
                 
                 global_message_id_counter = 0
-                
-                for i in range(self.num_messages_config):
-                    line = lines[current_line_idx + i]
-                    match = re.match(r'(\d+)\s+(\d+)\s+\[(.*?)\]', line)
+
+                message_line_pattern = re.compile(r'(\d+)\s+((?:\d+\s+)*)\[(.*?)\]')
+
+                for i in range(num_command_lines): 
+                    line = lines_to_read_topology_from[current_line_idx + i]
+                    
+                    match = message_line_pattern.match(line.strip())
+                    
                     if match:
-                        global_message_id_counter += 1
-                        source = int(match.group(1))
-                        destination = int(match.group(2))
+                        source_str = match.group(1)
+                        destinations_str = match.group(2).strip()
                         data = match.group(3)
+                        
+                        source = int(source_str)
+                        destinations = [int(d) for d in destinations_str.split()] if destinations_str else []
+
+                        if not destinations:
+                            print(f"WARNING: Line '{line}' has no specified destinations. Ignoring this command.")
+                            continue
+
+                        global_message_id_counter += 1
                         
                         cmd = {
                             "type": "send",
                             "source": source,
-                            "destination": destination,
+                            "destination": destinations,
                             "data": data,
-                            "global_id": global_message_id_counter
+                            "global_id": global_message_id_counter 
                         }
                         self.simulation_commands.append(cmd)
                         self.original_message_commands.append(cmd)
                         self.original_message_data_map[global_message_id_counter] = {
                             'data': data,
-                            'destination': destination
+                            'destination': destinations
                         }
+                    elif line.strip().lower().startswith("wait"):
+                        wait_time_match = re.match(r'wait\s+(\d+\.?\d*)', line.strip().lower())
+                        if wait_time_match:
+                            wait_time = float(wait_time_match.group(1))
+                            self.simulation_commands.append({"type": "wait", "time": wait_time})
+                        else:
+                            print(f"WARNING: Could not parse wait command from line: '{line}'")
                     else:
-                        print(f"WARNING: Could not parse simulation command line: '{line}'")
+                        print(f"WARNING: Could not parse command from line: '{line}' - Invalid format or unknown command type. This line will be ignored.")
 
-                self.simulation_commands.append({"type": "wait", "time": 2.0})
+                self.num_messages_config = global_message_id_counter 
+
+                if not any(cmd["type"] == "wait" for cmd in self.simulation_commands):
+                     self.simulation_commands.append({"type": "wait", "time": 2.0})
 
         except FileNotFoundError:
             print(f"ERROR: Configuration file '{filename}' not found.")
+            print("Please ensure the file exists and the path is correct.")
             sys.exit(1)
         except Exception as e:
             print(f"ERROR: Error parsing configuration file '{filename}': {e}")
@@ -490,13 +597,14 @@ class TSCHNetwork:
             node = TSCHNode(node_id, neighbors)
             self.add_node(node)
 
-        if self.nc_coder_node_id and self.nc_coder_node_id not in self.nodes:
-            print(f"ERROR: NC Coder Node {self.nc_coder_node_id} specified in config file does not exist in the topology.")
-            sys.exit(1)
-        for sender_id in self.nc_senders_nodes_list:
-            if sender_id not in self.nodes:
-                print(f"ERROR: NC Sender Node {sender_id} specified in config file does not exist in the topology.")
+        if self.network_coding_enabled:
+            if self.nc_coder_node_id and self.nc_coder_node_id not in self.nodes:
+                print(f"ERROR: NC Coder Node {self.nc_coder_node_id} specified in config file does not exist in the topology.")
                 sys.exit(1)
+            for sender_id in self.nc_senders_nodes_list:
+                if sender_id not in self.nodes:
+                    print(f"ERROR: NC Sender Node {sender_id} specified in config file does not exist in the topology.")
+                    sys.exit(1)
 
         self.setup_tsch_schedule()
         
@@ -522,34 +630,47 @@ class TSCHNetwork:
 
                 slot_id_counter += 2
 
-    def deliver_message(self, message: Message, destination: int):
-        if destination in self.nodes:
-            threading.Thread(
-                target=self._delayed_delivery,
-                args=(message, destination),
-                daemon=True
-            ).start()
-        elif destination == self.broadcast_id and message.is_nc_coded:
-            print(f"  Delivering NC Coded message {message.id} (broadcast) to intended destinations: {message.nc_intended_destinations}")
+    def deliver_message(self, message: Message, target_node_or_list: Union[int, List[int]]):
+        if message.is_nc_coded and target_node_or_list == self.broadcast_id:
+            print(f"  Delivering NC Coded message {message.id} (broadcast from coder) to intended destinations: {message.nc_intended_destinations}")
             for final_dest_nc in message.nc_intended_destinations:
                 if final_dest_nc in self.nodes:
                      threading.Thread(
                         target=self._delayed_delivery,
-                        args=(message, final_dest_nc),
+                        args=(message, final_dest_nc), # Entrega o mesmo objeto Message para cada destino final
                         daemon=True
                     ).start()
                 else:
                     print(f"WARNING: NC Coded message intended for non-existent node {final_dest_nc}. Dropping.")
+            return
+
+        if isinstance(target_node_or_list, int): 
+            if target_node_or_list in self.nodes:
+                threading.Thread(
+                    target=self._delayed_delivery,
+                    args=(message, target_node_or_list),
+                    daemon=True
+                ).start()
+            else:
+                print(f"WARNING: Attempted to deliver message {message.id} to non-existent node {target_node_or_list}. Dropping.")
+        elif isinstance(target_node_or_list, list): 
+            print(f"  Delivering message {message.id} (direct multicast from source) to destinations: {target_node_or_list}")
+            for final_dest in target_node_or_list:
+                if final_dest in self.nodes:
+                    threading.Thread(
+                        target=self._delayed_delivery,
+                        args=(message, final_dest),
+                        daemon=True
+                    ).start()
+                else:
+                    print(f"WARNING: Message {message.id} intended for non-existent node {final_dest}. Dropping.")
         else:
-            print(f"WARNING: Attempted to deliver message {message.id} to non-existent node {destination}. Dropping.")
-            if not message.is_nc_coded:
-                 self.messages_dropped_no_forward_path += 1
+            print(f"WARNING: Invalid destination type passed to deliver_message: {type(target_node_or_list)}. Expected int or list. Dropping message {message.id}.")
+
 
     def _delayed_delivery(self, message: Message, destination: int):
         time.sleep(random.uniform(0.01, 0.05))
-        if destination in self.nodes:
-            self.nodes[destination].receive_message(message)
-
+        self.nodes[destination].receive_message(message)
 
     def start_tsch_timer(self):
         def tsch_timer():
@@ -581,82 +702,79 @@ class TSCHNetwork:
 
         time.sleep(0.5)
 
-        nc_candidate_commands: Dict[int, Dict] = {}
-        regular_commands_to_process: List[Dict] = []
+        nc_precursor_commands_for_coder_this_run: List[Dict] = []
         
-        for command in self.original_message_commands:
-            if command["type"] != "send":
-                regular_commands_to_process.append(command)
+        print("\n--- Fase Principal: Enviando Mensagens Agrupadas por Nó ---")
+        
+        last_processed_source_id: Optional[int] = None
+        
+        commands_to_process = self.original_message_commands + [{"type": "sentinel", "source": -1, "destination": [], "data": ""}]
+        
+        current_batch_commands: List[Dict] = []
+        current_batch_source_id: Optional[int] = None
+
+        for command_template in commands_to_process:
+            if command_template["type"] == "wait":
+                if current_batch_commands:
+                    source_node = self.nodes.get(current_batch_source_id)
+                    if source_node:
+                        print(f"  Node {current_batch_source_id} sending {len(current_batch_commands)} message(s) in batch:")
+                        for cmd in current_batch_commands:
+                            # NOVO: Lógica de divisão do envio no nó de origem
+                            self._process_and_send_split_message(source_node, cmd, nc_precursor_commands_for_coder_this_run)
+                        time.sleep(0.05)
+                    current_batch_commands = []
+                    current_batch_source_id = None
+                
+                print(f"\n--- Waiting for {command_template['time']} seconds (During Send Phase) ---")
+                time.sleep(command_template['time'])
+                last_processed_source_id = None
                 continue
 
-            source_node = self.nodes.get(command["source"])
-            destination_node_id = command["destination"]
-            
-            is_nc_beneficial = False
-            if source_node and command["source"] in self.nc_senders_nodes_list and self.nc_coder_node_id:
-                if destination_node_id not in source_node.neighbors:
-                    coder_node = self.nodes.get(self.nc_coder_node_id)
-                    if coder_node:
-                        if self.nc_coder_node_id in source_node.neighbors or \
-                           any(self.nc_coder_node_id in self.nodes[n].neighbors for n in source_node.neighbors):
-                            is_nc_beneficial = True
-            
-            if is_nc_beneficial:
-                nc_candidate_commands[command["source"]] = command 
-            else:
-                regular_commands_to_process.append(command)
-        
+            source_id = command_template.get("source")
 
-        print("\n--- Fase 1: Enviando Mensagens Regulares ---")
-        for command in regular_commands_to_process:
-            if command["type"] == "send":
-                source_node = self.nodes.get(command["source"])
-                if source_node:
-                    print(f"  Sending regular message from {command['source']} to {command['destination']} (Global ID: {command.get('global_id', 'N/A')})...")
-                    source_node.send_message(
-                        command["destination"],
-                        command["data"],
-                        is_nc_precursor=False
-                    )
-                else:
-                    print(f"WARNING: Source node {command['source']} not found for sending regular message.")
-
-        time.sleep(0.5)
-
-        print("\n--- Fase 2: Enviando Mensagens Precursoras para o Codificador ---")
-        original_nc_message_commands_for_coder: List[Dict] = []
-
-        for source_id in self.nc_senders_nodes_list:
-            if source_id in nc_candidate_commands:
-                original_command = nc_candidate_commands[source_id]
-                source_node = self.nodes.get(original_command["source"])
-                
-                if source_node:
-                    print(f"  Sending NC precursor (Global ID: {original_command['global_id']}) from {original_command['source']} to Coder {self.nc_coder_node_id} (Original Final Dest: {original_command['destination']})...")
+            if current_batch_source_id is not None and (source_id != current_batch_source_id or command_template["type"] == "sentinel"):
+                if current_batch_commands:
+                    source_node = self.nodes.get(current_batch_source_id)
+                    if source_node:
+                        if last_processed_source_id is not None and current_batch_source_id != last_processed_source_id:
+                             time.sleep(0.1) 
+                        
+                        print(f"  Node {current_batch_source_id} sending {len(current_batch_commands)} message(s) in batch:")
+                        for cmd in current_batch_commands:
+                            # NOVO: Lógica de divisão do envio no nó de origem
+                            self._process_and_send_split_message(source_node, cmd, nc_precursor_commands_for_coder_this_run)
+                        time.sleep(0.05)
                     
-                    source_node.send_message(
-                        self.nc_coder_node_id,
-                        original_command["data"],
-                        is_nc_precursor=True,
-                        original_message_global_id=original_command["global_id"]
-                    )
-                    original_nc_message_commands_for_coder.append(original_command)
-                else:
-                    print(f"WARNING: NC Sender node {original_command['source']} not found.")
-            else:
-                print(f"INFO: NC Sender node {source_id} did not have a relevant message for NC in this cycle.")
+                current_batch_commands = []
+                current_batch_source_id = None
+                
+                if command_template["type"] == "sentinel":
+                    break
 
-        time.sleep(1.0)
+            if command_template["type"] == "send":
+                current_batch_commands.append(command_template)
+                current_batch_source_id = source_id
+                last_processed_source_id = source_id
+        
+        # --- Fim do Loop de Envio Principal ---
 
-        print("\n--- Fase 3: Codificando e Enviando Mensagem XORada ---")
+        # --- Atraso para permitir que todos os precursores cheguem ao codificador ---
+        if nc_precursor_commands_for_coder_this_run:
+            print("\n--- Waiting for precursors to reach coder (1.0s) ---")
+            time.sleep(1.0) 
+
+        # --- Fase de Codificação (apenas uma vez, após todos os precursores serem enviados) ---
+        print("\n--- Fase de Codificação: Codificando e Enviando Mensagem XORada ---")
         coder_node = self.nodes.get(self.nc_coder_node_id)
-        if coder_node and original_nc_message_commands_for_coder:
-            coder_node.process_nc_coding(original_nc_message_commands_for_coder)
+        if coder_node and nc_precursor_commands_for_coder_this_run:
+            coder_node.process_nc_coding(nc_precursor_commands_for_coder_this_run) 
         elif not coder_node:
             print("ERROR: NC Coder node not found or not initialized.")
         else:
-            print("INFO: No NC precursor messages were eligible for coding in this cycle. Skipping NC coding phase.")
-        time.sleep(0.5)
+            print("INFO: No NC precursor messages were collected for coding in this run. Skipping NC coding phase.")
+        
+        time.sleep(0.05)
 
         for command in self.simulation_commands:
             if command["type"] == "wait":
@@ -672,22 +790,34 @@ class TSCHNetwork:
         for node_id, node in self.nodes.items():
             print(f"\nNó {node_id}:")
             if node.received_messages:
-                total_paths_found += len(node.received_messages)
-                print(f"  Total de mensagens recebidas: {len(node.received_messages)}")
+                num_received_by_this_node = 0
+                for msg in node.received_messages:
+                    if (isinstance(msg.destination, list) and node_id in msg.destination) or \
+                       (isinstance(msg.destination, int) and node_id == msg.destination) or \
+                       (msg.is_nc_coded and node_id in msg.nc_intended_destinations and "DECODED" in msg.data):
+                        num_received_by_this_node += 1
+                total_paths_found += num_received_by_this_node
+
+                print(f"  Total de mensagens recebidas: {num_received_by_this_node}")
                 for i, msg in enumerate(node.received_messages):
                     path_str = " -> ".join(map(str, msg.path))
+                    display_dest = ""
+                    if isinstance(msg.destination, list):
+                        display_dest = f"[{','.join(map(str, msg.destination))}]"
+                    elif isinstance(msg.destination, int):
+                        display_dest = str(msg.destination)
+                    
                     status_nc = ""
                     if msg.is_nc_coded:
                         status_nc = f"(NC Coded - Raw Packet, Orig Global IDs: {msg.original_message_ids}, Intended Dests: {msg.nc_intended_destinations})"
                     elif msg.is_nc_precursor:
                         status_nc = f"(NC Precursor - Raw Packet, Original Global ID: {msg.original_message_ids[0] if msg.original_message_ids else 'N/A'})"
                     elif msg.destination == node_id and "DECODED" in msg.data and msg.original_message_ids:
-                        # Corrigido o log para usar original_message_ids[0] do próprio msg.
                         status_nc = f"(NC Decoded - Original Msg, Orig Global ID: {msg.original_message_ids[0]}, From Coder {msg.source})"
                     else:
                          status_nc = "(Regular)"
 
-                    print(f"    - Mensagem {i+1} (ID local: {msg.id}, Origem: {msg.source}, Destino Final: {msg.destination}, Hops: {msg.hop_count}, Caminho: {path_str}) {status_nc}: '{msg.data}'")
+                    print(f"    - Mensagem {i+1} (ID local: {msg.id}, Origem: {msg.source}, Destino(s): {display_dest}, Hops: {msg.hop_count}, Caminho: {path_str}) {status_nc}: '{msg.data}'")
             else:
                 print("  Nenhuma mensagem recebida.")
 
@@ -738,19 +868,16 @@ class TSCHNetwork:
                 slotframe_length,
                 total_transmissions,
                 num_channels_used,
-                self.nc_coder_node_id,
+                1, # Network_Coding setado como 1
                 self.total_messages_initiated,
                 self.messages_not_sent_no_route,
                 self.messages_dropped_hop_limit,
                 self.messages_dropped_no_forward_path,
-                self.total_forwarded_messages,
-                self.total_nc_coded_messages_sent,
-                self.messages_dropped_not_intended_nc_dest
+                self.total_forwarded_messages
             ]
             results_csv_writer.writerow(row_data)
             print(f"Dados da simulação adicionados ao CSV: {row_data}")
 
-        # --- AQUI: Adiciona "_nc" ao nome dos arquivos de imagem e GIF ---
         topology_image_path_final = os.path.join(output_base_path, f"{output_file_base_name}_nc_topology_final.png")
         self.plot_network_topology(save_path=topology_image_path_final)
         print(f"Imagem da topologia final salva como '{output_file_base_name}_nc_topology_final.png'.")
@@ -759,6 +886,76 @@ class TSCHNetwork:
         print("Gerando animação da rede. Isso pode levar um tempo...")
         self.animate_network_traffic(save_path=gif_output_path)
         print(f"Animação concluída! O arquivo '{output_file_base_name}_nc_traffic.gif' foi gerado.")
+
+    def _process_and_send_split_message(self, source_node: 'TSCHNode', cmd: Dict, nc_precursor_commands_for_coder_this_run: List[Dict]):
+        """
+        Processa um comando de mensagem (cmd) e decide se o envia diretamente ou como precursor NC.
+        Para mensagens multicast, ele pode disparar vários envios a partir de um único comando.
+        """
+        original_source_id = cmd["source"]
+        original_global_id = cmd["global_id"]
+        original_data = cmd["data"]
+        original_destinations = cmd["destination"] # Esta é uma lista ou int
+
+        # Destinos que podem ser alcançados diretamente
+        direct_destinations = []
+        # Destinos que precisam de hop intermediário e são candidatos a NC
+        nc_eligible_destinations = []
+
+        # Classifica os destinos
+        if isinstance(original_destinations, list):
+            for dest_id in original_destinations:
+                if dest_id in source_node.neighbors:
+                    direct_destinations.append(dest_id)
+                else:
+                    nc_eligible_destinations.append(dest_id)
+        elif isinstance(original_destinations, int): # Caso de unicast
+            if original_destinations in source_node.neighbors:
+                direct_destinations.append(original_destinations)
+            else:
+                nc_eligible_destinations.append(original_destinations)
+
+        # 1. Enviar para destinos diretos (se houver)
+        if direct_destinations:
+            print(f"    - Sending direct regular message from {original_source_id} to {direct_destinations} (Global ID: {original_global_id})...")
+            source_node.send_message(
+                direct_destinations, # Passa a lista de destinos diretos
+                original_data,
+                is_nc_precursor=False,
+                original_message_global_id=original_global_id,
+                nc_intended_destinations=direct_destinations # Mesmos que os destinos
+            )
+
+        # 2. Enviar para o codificador (se houver destinos NC elegíveis e o codificador for acessível)
+        if nc_eligible_destinations and self.nc_coder_node_id:
+            coder_node = self.nodes.get(self.nc_coder_node_id)
+            if coder_node:
+                # Verifica se o codificador é acessível pela fonte
+                is_coder_accessible = False
+                if self.nc_coder_node_id in source_node.neighbors or \
+                   any(self.nc_coder_node_id in self.nodes[n].neighbors for n in source_node.neighbors):
+                    is_coder_accessible = True
+
+                if is_coder_accessible:
+                    print(f"    - Sending NC precursor (Global ID: {original_global_id}) from {original_source_id} to Coder {self.nc_coder_node_id} (Original Final Dests: {nc_eligible_destinations})...")
+                    source_node.send_message(
+                        self.nc_coder_node_id, # Destino IMEDIATO é o codificador
+                        original_data,
+                        is_nc_precursor=True,
+                        original_message_global_id=original_global_id,
+                        nc_intended_destinations=nc_eligible_destinations, # Passa APENAS os destinos que vão via NC
+                        nc_precursor_original_final_dest=original_destinations # NOVO: Passa o destino final original COMPLETO
+                    )
+                    nc_precursor_commands_for_coder_this_run.append(cmd) # Coleta para a fase de codificação
+                else:
+                    print(f"    - WARNING: Coder {self.nc_coder_node_id} not accessible from {original_source_id}. NC eligible messages for {nc_eligible_destinations} dropped.")
+                    # Opcional: Contabilizar como dropped se o coder não é acessível
+                    # self.messages_dropped_no_forward_path += 1 * len(nc_eligible_destinations)
+            else:
+                print(f"    - WARNING: NC Coder {self.nc_coder_node_id} not found. NC eligible messages for {nc_eligible_destinations} dropped.")
+                # Opcional: Contabilizar como dropped
+                # self.messages_dropped_no_forward_path += 1 * len(nc_eligible_destinations)
+
 
     def plot_network_topology(self, save_path: Optional[str] = None):
         G = nx.Graph()
@@ -848,24 +1045,25 @@ class TSCHNetwork:
             current_sim_time = (frame / fps_gif) / gif_speed_factor
 
             active_events = []
-            for event_time, msg_id, from_node, to_node, event_type, optional_data in normalized_events:
+            for event_time, msg_id, from_node, to_node_raw, event_type, optional_data in normalized_events:
                 if current_sim_time >= event_time and (current_sim_time - event_time) < arrow_visibility_duration_sim_time:
-                    active_events.append((msg_id, from_node, to_node, event_type, optional_data))
+                    active_events.append((msg_id, from_node, to_node_raw, event_type, optional_data))
 
             current_messages_info = []
             
-            for anim_msg_id, from_node, to_node, event_type, optional_data in active_events:
+            for anim_msg_id, from_node, to_node_raw, event_type, optional_data in active_events:
                 if from_node in pos:
                     arrow_color = 'red'
-                    info_text = f"M{anim_msg_id}: {from_node}->{to_node}"
                     
-                    offset_base_id = anim_msg_id
-                    if event_type == "sending_nc_precursor" and optional_data is not None:
-                        offset_base_id = optional_data
-                    elif event_type == "received_final_nc_decoded" and optional_data is not None:
-                         offset_base_id = optional_data
+                    display_to_node_text = ""
+                    if isinstance(optional_data, list): # Se a mensagem é um multicast (optional_data = lista de destinos finais)
+                        display_to_node_text = f"[{','.join(map(str, optional_data))}]"
+                    else: # Se é unicast
+                        display_to_node_text = str(to_node_raw)
 
-                    offset_magnitude = (offset_base_id % 3 - 1) * 0.05
+                    info_text = f"M{anim_msg_id}: {from_node}->{display_to_node_text}"
+                    
+                    offset_magnitude = (anim_msg_id % 3 - 1) * 0.05 
 
                     if event_type == "sending_nc_coded":
                         arrow_color = 'purple'
@@ -899,31 +1097,30 @@ class TSCHNetwork:
                     elif event_type == "sending_nc_precursor":
                         arrow_color = 'green'
                         if optional_data is not None:
-                            info_text = f"NC Precursor M{optional_data}: {from_node}->{to_node}"
+                            info_text = f"NC Precursor M{optional_data}: {from_node}->{display_to_node_text}"
                     elif event_type == "received_final_nc_decoded":
-                        info_text = f"Decoded M{optional_data if optional_data is not None else anim_msg_id}: by {to_node}"
+                        info_text = f"Decoded M{optional_data if optional_data is not None else anim_msg_id}: by {to_node_raw}"
                         try:
-                            dest_idx = list(G.nodes).index(to_node)
+                            dest_idx = list(G.nodes).index(to_node_raw)
                             node_colors_current[dest_idx] = 'gold'
                         except ValueError:
                             pass
                         continue
                         
                     
-                    x1, y1 = pos[from_node]
-                    x2, y2 = pos[to_node] if to_node in pos else (x1, y1)
+                    if isinstance(to_node_raw, int) and to_node_raw in pos:
+                        x1, y1 = pos[from_node]
+                        x2, y2 = pos[to_node_raw]
 
-                    offset_magnitude = (anim_msg_id % 3 - 1) * 0.05 # Usar anim_msg_id para offset geral
-                    dx = x2 - x1
-                    dy = y2 - y1
-                    len_vec = (dx**2 + dy**2)**0.5
+                        dx = x2 - x1
+                        dy = y2 - y1
+                        len_vec = (dx**2 + dy**2)**0.5
 
-                    x1_off = x1 - (dy / len_vec) * offset_magnitude if len_vec > 0 else x1
-                    y1_off = y1 + (dx / len_vec) * offset_magnitude if len_vec > 0 else y1
-                    x2_off = x2 - (dy / len_vec) * offset_magnitude if len_vec > 0 else x2
-                    y2_off = y2 + (dx / len_vec) * offset_magnitude if len_vec > 0 else y2
-                    
-                    if to_node != self.broadcast_id:
+                        x1_off = x1 - (dy / len_vec) * offset_magnitude if len_vec > 0 else x1
+                        y1_off = y1 + (dx / len_vec) * offset_magnitude if len_vec > 0 else y1
+                        x2_off = x2 - (dy / len_vec) * offset_magnitude if len_vec > 0 else x2
+                        y2_off = y2 + (dx / len_vec) * offset_magnitude if len_vec > 0 else y2
+                        
                         ax.annotate(
                             '', xy=(x2_off, y2_off), xytext=(x1_off, y1_off),
                             arrowprops=dict(facecolor=arrow_color, edgecolor=arrow_color, shrink=0.05, width=2, headwidth=10, headlength=10),
@@ -960,7 +1157,7 @@ def main():
 
     input_filepath = sys.argv[1]
 
-    log_dir = "logs"
+    log_dir = "logs" # Pasta raiz para logs
     project_root = os.path.dirname(os.path.abspath(sys.argv[0]))
     output_base_path = os.path.join(project_root, log_dir)
 
@@ -968,10 +1165,10 @@ def main():
 
     input_filename_without_ext = os.path.splitext(os.path.basename(input_filepath))[0]
 
-    log_filename = f"{input_filename_without_ext}_nc_log.txt"
+    log_filename = f"{input_filename_without_ext}_nc_log.txt" # Log com _nc no nome
     log_filepath = os.path.join(output_base_path, log_filename)
 
-    results_csv_filepath = os.path.join(output_base_path, "simulation_results.csv")
+    results_csv_filepath = os.path.join(output_base_path, "simulation_results.csv") # CSV normal
 
     original_stdout = sys.stdout
 
@@ -990,14 +1187,12 @@ def main():
                 "Tamanho_do_Slotframe",
                 "Numero_de_Transmissoes_Totais",
                 "Numero_de_Canais_Usados",
-                "NC_Coder_Node_ID",
+                "Network_Coding", # Campo para 0 ou 1
                 "Mensagens_Iniciadas",
                 "Mensagens_Nao_Enviadas_Sem_Rota",
                 "Mensagens_Descartadas_Hop_Limit",
                 "Mensagens_Descartadas_Sem_Prox_Caminho",
-                "Total_Retransmissoes_Logicas",
-                "Total_Mensagens_NC_Codificadas_Enviadas",
-                "Mensagens_Descartadas_Nao_Destino_NC_Pretendido"
+                "Total_Retransmissoes_Logicas"
             ])
 
         log_file = open(log_filepath, 'w')
@@ -1011,7 +1206,7 @@ def main():
         network.run_simulation(output_base_path, input_filename_without_ext, results_csv_file)
 
     except Exception as e:
-        original_stdout.write(f"\nFATAL ERROR during NC simulation: {e}\n")
+        original_stdout.write(f"\nFATAL ERROR during simulation: {e}\n") # Adapta a mensagem de erro
         import traceback
         original_stdout.write(traceback.format_exc())
         sys.exit(1)
@@ -1024,7 +1219,7 @@ def main():
 
         print(f"Registro de log NC concluído! O arquivo '{log_filename}' foi gerado.")
         print(f"Dados da simulação adicionados a 'simulation_results.csv'.")
-        print(f"Verifique o diretório '/home/thaiswsl/GitHub/Redes_Sem_Fio-NetworkCodingTSCH/pythonCode/logs'.")
+        print(f"Verifique o diretório '{output_base_path}'.")
 
 
 if __name__ == "__main__":
