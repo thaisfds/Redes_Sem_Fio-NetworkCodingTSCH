@@ -68,7 +68,7 @@ class TSCHSlot:
 
 
 class TSCHSchedule:
-    def __init__(self, slotframe_length: int = 10):
+    def __init__(self, slotframe_length: int = 2):
         self.slotframe_length = slotframe_length
         self.slots: List[TSCHSlot] = []
         self.current_slot = 0
