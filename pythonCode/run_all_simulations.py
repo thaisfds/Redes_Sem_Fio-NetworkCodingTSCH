@@ -5,25 +5,20 @@ import time
 import shutil
 
 def clean_logs_folder(logs_path):
-    """
-    Limpa a pasta de logs, removendo todos os arquivos e subdiretórios.
-    Cria a pasta se ela não existir.
-    """
     if os.path.exists(logs_path):
         print(f"Limpando a pasta de logs: '{logs_path}'...")
         for item in os.listdir(logs_path):
             item_path = os.path.join(logs_path, item)
             try:
                 if os.path.isfile(item_path) or os.path.islink(item_path):
-                    os.unlink(item_path) # Remove arquivo ou link simbólico
+                    os.unlink(item_path)
                 elif os.path.isdir(item_path):
-                    shutil.rmtree(item_path) # Remove diretório e seu conteúdo
-                # print(f"  Removido: {item}") # Opcional: remover este print para logs mais limpos
+                    shutil.rmtree(item_path)
             except Exception as e:
                 print(f"  Erro ao remover {item}: {e}")
     else:
         print(f"A pasta de logs '{logs_path}' não existe. Criando...")
-        os.makedirs(logs_path) # Cria a pasta se não existir
+        os.makedirs(logs_path)
     
     print("Pasta de logs limpa/criada.")
 
@@ -37,7 +32,6 @@ def run_all_simulations():
     configs_path = os.path.join(project_root, configs_dir_name)
     logs_path = os.path.join(project_root, log_dir_name) 
 
-    # Limpa a pasta de logs antes de iniciar todas as simulações
     clean_logs_folder(logs_path)
 
     if not os.path.isdir(configs_path):
@@ -53,8 +47,6 @@ def run_all_simulations():
         print("Certifique-se de que seus arquivos de configuração estejam lá.")
         sys.exit(0)
 
-    # NOVO: Definir os scripts que serão executados
-    # Certifique-se de que os nomes dos arquivos estão corretos
     simulation_scripts = {
         "NORMAL": 'tsch_udp_simulation.py',
         "NETWORK_CODING": 'tsch_udp_nc_simulation.py'
@@ -80,26 +72,16 @@ def run_all_simulations():
             start_time = time.time()
 
             try:
-                # Chama o script de simulação como um subprocesso
-                # Os logs completos de cada simulação individual serão salvos em seus respectivos .txt
                 result = subprocess.run(
                     ['python3', script_path, full_config_filepath],
                     check=True, 
                     text=True,
-                    # Capturar a saída aqui é útil para depurar o subprocesso,
-                    # mas o tsch_udp_simulation.py já redireciona para o log.
-                    # Se você não quer ver NADA no console, remova stdout/stderr
-                    # E o script `tsch_udp_simulation.py` deve garantir que os prints
-                    # vão para o arquivo de log.
-                    # No estado atual do tsch_udp_simulation.py, ele já faz o redirecionamento.
-                    capture_output=True # Captura stdout e stderr do subprocesso
+                    capture_output=True
                 )
                 print(f"--- SIMULAÇÃO '{config_file}' no modo {mode} CONCLUÍDA COM SUCESSO! ---")
-                # print(result.stdout) # Opcional: Se quiser ver algum output capturado aqui (geralmente vazio)
             except subprocess.CalledProcessError as e:
                 print(f"!!! ERRO NA SIMULAÇÃO '{config_file}' no modo {mode} !!!")
                 print(f"Código de saída: {e.returncode}")
-                # Imprime stdout/stderr do erro capturado para depuração
                 print(f"--- STDOUT do subprocesso:\n{e.stdout}")
                 print(f"--- STDERR do subprocesso:\n{e.stderr}")
                 print("Continuando para a próxima simulação...")
@@ -115,9 +97,6 @@ def run_all_simulations():
             print(f"Tempo total para '{config_file}' no modo {mode}: {end_time - start_time:.2f} segundos.")
             print("-" * 50)
             
-            # Opcional: Adicione um pequeno atraso entre as simulações
-            # time.sleep(0.5) 
-
     print("\nTODAS AS SIMULAÇÕES FORAM PROCESSADAS.")
     print(f"Verifique a pasta '{log_dir_name}/' para os arquivos de saída de cada simulação.")
     print("Cada simulação terá seu próprio arquivo de log e resultados visuais.")
