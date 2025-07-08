@@ -445,6 +445,30 @@ class TSCHNetwork:
         self.messages_dropped_hop_limit = 0
         self.messages_dropped_no_forward_path = 0
 
+    def get_shortest_path_length(self, start_node_id: int, end_node_id: int) -> int:
+        if start_node_id == end_node_id:
+            return 0
+        
+        if start_node_id not in self.nodes or end_node_id not in self.nodes:
+            return float('inf')
+
+        queue = deque([(start_node_id, 0)])
+        visited = {start_node_id}
+
+        while queue:
+            current_node_id, hops = queue.popleft()
+
+            if current_node_id == end_node_id:
+                return hops
+
+            current_node = self.nodes[current_node_id]
+            for neighbor_id in current_node.neighbors:
+                if neighbor_id not in visited:
+                    visited.add(neighbor_id)
+                    queue.append((neighbor_id, hops + 1))
+        
+        return float('inf')
+
 
     def add_node(self, node: TSCHNode):
         self.nodes[node.node_id] = node
@@ -843,54 +867,41 @@ class TSCHNetwork:
         original_data = cmd["data"]
         original_destinations = cmd["destination"]
 
-        direct_destinations = []
-        nc_eligible_destinations = []
+        for original_destination in original_destinations:
+            hops_to_direct_destination = self.get_shortest_path_length(original_source_id, original_destination)
+            
+            use_nc = False
+            if self.network_coding_enabled and self.nc_coder_node_id:
+                hops_to_coder = self.get_shortest_path_length(original_source_id, self.nc_coder_node_id)
+                
+                if hops_to_coder != float('inf'):
+                    nc_total_hops_estimate = hops_to_coder + 1 
+                    
+                    if original_destination not in source_node.neighbors and (hops_to_direct_destination == float('inf') or nc_total_hops_estimate <= hops_to_direct_destination):
+                         use_nc = True
 
-        if isinstance(original_destinations, list):
-            for dest_id in original_destinations:
-                if dest_id in source_node.neighbors:
-                    direct_destinations.append(dest_id)
-                else:
-                    nc_eligible_destinations.append(dest_id)
-        elif isinstance(original_destinations, int):
-            if original_destinations in source_node.neighbors:
-                direct_destinations.append(original_destinations)
+            if use_nc:
+                print(f"    - Sending NC precursor (Global ID: {original_global_id}) from {original_source_id} to Coder {self.nc_coder_node_id} (Original Final Dest: {original_destination})...")
+                source_node.send_message(
+                    self.nc_coder_node_id,
+                    original_data,
+                    is_nc_precursor=True,
+                    original_message_global_id=original_global_id,
+                    nc_intended_destinations=[original_destination],
+                    nc_precursor_original_final_dest=original_destination
+                )
+                nc_precursor_commands_for_coder_this_run.append(cmd) 
+            elif hops_to_direct_destination != float('inf'):
+                print(f"    - Sending direct regular message from {original_source_id} to {original_destination} (Global ID: {original_global_id})...")
+                source_node.send_message(
+                    original_destination,
+                    original_data,
+                    is_nc_precursor=False,
+                    original_message_global_id=original_global_id,
+                    nc_intended_destinations=[original_destination]
+                )
             else:
-                nc_eligible_destinations.append(original_destinations)
-
-        if direct_destinations:
-            print(f"    - Sending direct regular message from {original_source_id} to {direct_destinations} (Global ID: {original_global_id})...")
-            source_node.send_message(
-                direct_destinations,
-                original_data,
-                is_nc_precursor=False,
-                original_message_global_id=original_global_id,
-                nc_intended_destinations=direct_destinations
-            )
-
-        if nc_eligible_destinations and self.nc_coder_node_id:
-            coder_node = self.nodes.get(self.nc_coder_node_id)
-            if coder_node:
-                is_coder_accessible = False
-                if self.nc_coder_node_id in source_node.neighbors or \
-                   any(self.nc_coder_node_id in self.nodes[n].neighbors for n in source_node.neighbors):
-                    is_coder_accessible = True
-
-                if is_coder_accessible:
-                    print(f"    - Sending NC precursor (Global ID: {original_global_id}) from {original_source_id} to Coder {self.nc_coder_node_id} (Original Final Dests: {nc_eligible_destinations})...")
-                    source_node.send_message(
-                        self.nc_coder_node_id,
-                        original_data,
-                        is_nc_precursor=True,
-                        original_message_global_id=original_global_id,
-                        nc_intended_destinations=nc_eligible_destinations,
-                        nc_precursor_original_final_dest=original_destinations
-                    )
-                    nc_precursor_commands_for_coder_this_run.append(cmd)
-                else:
-                    print(f"    - WARNING: Coder {self.nc_coder_node_id} not accessible from {original_source_id}. NC eligible messages for {nc_eligible_destinations} dropped.")
-            else:
-                print(f"    - WARNING: NC Coder {self.nc_coder_node_id} not found. NC eligible messages for {nc_eligible_destinations} dropped.")
+                print(f"    - WARNING: Message {original_global_id} from {original_source_id} to {original_destination} cannot be sent: No direct path and no beneficial NC path identified.")
 
     def plot_network_topology(self, save_path: Optional[str] = None):
         G = nx.Graph()
