@@ -1,0 +1,148 @@
+Data/Hora da Simulação: 2025-07-07 23:07:24
+
+============================================================
+        INICIANDO SIMULAÇÃO TSCH + UDP
+        Topologia da Rede: Carregada de '5nodes2msgs.txt'
+        Canais Disponíveis: 10
+        TODAS AS MENSAGENS ENVIADAS SIMULTANEAMENTE NO INÍCIO!
+============================================================
+
+--- Node 1 - Sending Message ---
+  Message ID (local): 1
+  Global Message ID: 1
+  Source: 1
+  Original Final Destination(s): [2, 4]
+  Data: '10101010'
+  Current Path (after source added): [1]
+  Current Hop Count: 0
+  Transmitting to next physical hop: 4.
+-----------------------------------
+
+
+--- Node 3 - Sending Message ---
+  Message ID (local): 1
+  Global Message ID: 2
+  Source: 3
+  Original Final Destination(s): [2, 4]
+  Data: '01010101'
+  Current Path (after source added): [3]
+  Current Hop Count: 0
+  Transmitting to next physical hop: 2.
+-----------------------------------
+
+
+--- Waiting for 2.0 seconds ---
+
+--- Node 2 - Receiving Message ---
+  Message ID (local source): 1
+  Global Message ID: 2
+  Source: 3
+  Original Final Destination(s): [2, 4]
+  Data: '01010101'
+  Current Path (before processing): [3]
+  Current Hop Count (before processing): 0
+  SUCCESS: Node 2 received final message: '01010101'
+  Final Path: [3, 2]
+  Final Hop Count: 1
+  Node 2 (intermediate) is forwarding message 1 (Global ID: 2).
+    - Initiating retransmission from 2 to 4 for Global ID: 2 towards final dest 4. Current Path: [3, 2]
+-------------------------------------
+
+
+--- Node 4 - Receiving Message ---
+  Message ID (local source): 1
+  Global Message ID: 1
+  Source: 1
+  Original Final Destination(s): [2, 4]
+  Data: '10101010'
+  Current Path (before processing): [1]
+  Current Hop Count (before processing): 0
+  SUCCESS: Node 4 received final message: '10101010'
+  Final Path: [1, 4]
+  Final Hop Count: 1
+  Node 4 (intermediate) is forwarding message 1 (Global ID: 1).
+    - Initiating retransmission from 4 to 2 for Global ID: 1 towards final dest 2. Current Path: [1, 4]
+-------------------------------------
+
+
+--- Node 2 - Receiving Message ---
+  Message ID (local source): 1
+  Global Message ID: 1
+  Source: 1
+  Original Final Destination(s): [2, 4]
+  Data: '10101010'
+  Current Path (before processing): [1, 4]
+  Current Hop Count (before processing): 1
+  SUCCESS: Node 2 received final message: '10101010'
+  Final Path: [1, 4, 2]
+  Final Hop Count: 2
+-------------------------------------
+
+
+--- Node 4 - Receiving Message ---
+  Message ID (local source): 1
+  Global Message ID: 2
+  Source: 3
+  Original Final Destination(s): [2, 4]
+  Data: '01010101'
+  Current Path (before processing): [3, 2]
+  Current Hop Count (before processing): 1
+  SUCCESS: Node 4 received final message: '01010101'
+  Final Path: [3, 2, 4]
+  Final Hop Count: 2
+-------------------------------------
+
+
+============================================================
+        SIMULAÇÃO CONCLUÍDA
+        Resumo de Mensagens Recebidas:
+============================================================
+
+Nó 1:
+  Nenhuma mensagem recebida.
+
+Nó 2:
+  Total de mensagens recebidas (como destino final): 0
+    - Mensagem 1 (ID local: 1, Global ID: 2, Origem: 3, Destino Final: [2, 4], Hops: 1, Caminho: 3 -> 2): '01010101'
+    - Mensagem 2 (ID local: 1, Global ID: 1, Origem: 1, Destino Final: [2, 4], Hops: 2, Caminho: 1 -> 4 -> 2): '10101010'
+
+Nó 3:
+  Nenhuma mensagem recebida.
+
+Nó 4:
+  Total de mensagens recebidas (como destino final): 0
+    - Mensagem 1 (ID local: 1, Global ID: 1, Origem: 1, Destino Final: [2, 4], Hops: 1, Caminho: 1 -> 4): '10101010'
+    - Mensagem 2 (ID local: 1, Global ID: 2, Origem: 3, Destino Final: [2, 4], Hops: 2, Caminho: 3 -> 2 -> 4): '01010101'
+
+Nó 5:
+  Nenhuma mensagem recebida.
+
+--- Informações Adicionais da Simulação TSCH ---
+Tamanho do Slotframe: 2
+
+Número de Mensagens Transmitidas por Canal (Agregado):
+  Canal 1: 1 transmissões
+  Canal 2: 1 transmissões
+  Canal 3: 1 transmissões
+  Canal 4: 1 transmissões
+Total de transmissões em todos os canais: 4
+Número total de canais utilizados: 4
+
+--- Desempenho de Mensagens ---
+Mensagens originadas (tentadas): 2
+Mensagens entregues com sucesso (únicas por Global ID): 0
+Mensagens não enviadas (sem rota inicial): 0
+Mensagens descartadas por limite de hops: 0
+Mensagens descartadas (sem caminho para frente): 0
+Total de mensagens reencaminhadas (hops intermediários): 2
+Mensagens descartadas (não é destino NC pretendido): 0
+Total de mensagens NC codificadas enviadas pelo codificador: 0
+--------------------------------------------------
+
+
+============================================================
+Dados da simulação adicionados ao CSV: ['5nodes2msgs', 5, 2, 0, 2, 4, 4, 0, 2, 0, 0, 0, 2]
+Imagem da topologia final salva como '5nodes2msgs_topology_final.png'.
+Gerando animação da rede. Isso pode levar um tempo...
+Salvando animação como GIF... (isso pode demorar)
+Animação concluída! O arquivo '/home/thaiswsl/GitHub/Redes_Sem_Fio-NetworkCodingTSCH/pythonCode/logs/5nodes2msgs_traffic.gif' foi gerado.

@@ -1,0 +1,210 @@
+Data/Hora da Simulação NC: 2025-07-07 23:08:25
+
+INFO: NC Header found. Coder: 4, Senders: [1, 7]
+============================================================
+        INICIANDO SIMULAÇÃO TSCH + UDP com NETWORK CODING
+        Topologia da Rede: Carregada de '7nodes4msgs.txt'
+        Canais Disponíveis: 10
+        Nó Codificador NC: 4
+        Nós Emissores NC: [1, 7]
+        TODAS AS MENSAGENS ENVIADAS SIMULTANEAMENTE NO INÍCIO!
+============================================================
+
+--- Fase Principal: Enviando Mensagens Agrupadas por Nó ---
+  Node 1 sending 1 message(s) in batch:
+    - Sending NC precursor (Global ID: 1) from 1 to Coder 4 (Original Final Dest: 5)...
+
+--- Node 1 - Sending Message ---
+  Message ID (local): 1
+  Source: 1
+  Destination(s): 4
+  Data: '10001000'
+  Initial Path: [1]
+  Is NC Precursor: True
+  Is NC Coded: False
+  Original Message Global IDs: [1]
+  NC Intended Dests: [5]
+  NC Precursor Original Final Dest: 5
+  Forwarding via next hop: 2.
+-----------------------------------
+
+
+--- Node 4 - Receiving Message ---
+  Message ID (local): 1
+  Source: 1
+  Destination(s): 4
+  Is NC Precursor: True
+  Is NC Coded: False
+  Original Message Global IDs: [1]
+  NC Intended Dests: [5]
+  NC Precursor Original Final Dest: 5
+  Node 4 (Coder) received NC precursor message 1 from 1 (Data: '10001000').
+  NC Coder Buffer updated. Current buffer original Global IDs: [1]
+  Node 7 sending 1 message(s) in batch:
+    - Sending NC precursor (Global ID: 2) from 7 to Coder 4 (Original Final Dest: 2)...
+
+--- Node 7 - Sending Message ---
+  Message ID (local): 1
+  Source: 7
+  Destination(s): 4
+  Data: '00110011'
+  Initial Path: [7]
+  Is NC Precursor: True
+  Is NC Coded: False
+  Original Message Global IDs: [2]
+  NC Intended Dests: [2]
+  NC Precursor Original Final Dest: 2
+  Forwarding via next hop: 5.
+-----------------------------------
+
+
+--- Node 4 - Receiving Message ---
+  Message ID (local): 1
+  Source: 7
+  Destination(s): 4
+  Is NC Precursor: True
+  Is NC Coded: False
+  Original Message Global IDs: [2]
+  NC Intended Dests: [2]
+  NC Precursor Original Final Dest: 2
+  Node 4 (Coder) received NC precursor message 1 from 7 (Data: '00110011').
+  NC Coder Buffer updated. Current buffer original Global IDs: [1, 2]
+  Node 6 sending 1 message(s) in batch:
+    - Sending NC precursor (Global ID: 3) from 6 to Coder 4 (Original Final Dest: 1)...
+
+--- Node 6 - Sending Message ---
+  Message ID (local): 1
+  Source: 6
+  Destination(s): 4
+  Data: '11001100'
+  Initial Path: [6]
+  Is NC Precursor: True
+  Is NC Coded: False
+  Original Message Global IDs: [3]
+  NC Intended Dests: [1]
+  NC Precursor Original Final Dest: 1
+  Forwarding via next hop: 4.
+-----------------------------------
+
+
+--- Node 4 - Receiving Message ---
+  Message ID (local): 1
+  Source: 6
+  Destination(s): 4
+  Is NC Precursor: True
+  Is NC Coded: False
+  Original Message Global IDs: [3]
+  NC Intended Dests: [1]
+  NC Precursor Original Final Dest: 1
+  Node 4 (Coder) received NC precursor message 1 from 6 (Data: '11001100').
+  NC Coder Buffer updated. Current buffer original Global IDs: [1, 2, 3]
+
+--- Waiting for precursors to reach coder (1.0s) ---
+
+--- Fase de Codificação: Codificando e Enviando Mensagem XORada ---
+  Node 4 (Coder) has all expected NC precursor messages! Performing XOR.
+  XOR Result: 01110111 from ['10001000', '00110011', '11001100']
+  Node 4 (Coder) sending NC-coded message 1 (Data: '01110111') to destinations [1, 2, 5].
+  Delivering NC Coded message 1 (broadcast from coder) to intended destinations: [1, 2, 5]
+
+--- Node 1 - Receiving Message ---
+  Message ID (local): 1
+  Source: 4
+  Destination(s): -1
+  Is NC Precursor: False
+  Is NC Coded: True
+  Original Message Global IDs: [1, 2, 3]
+  NC Intended Dests: [1, 2, 5]
+  NC Precursor Original Final Dest: None
+  Node 1 received NC-coded message 1 (Data: '01110111').
+  Node 1 is an intended destination. Simulating decoding and delivery.
+  SUCCESS: Node 1 successfully decoded and received its part of NC message. Data: 'DECODED '11001100' (from NC msg '01110111')'
+  Final Path (decoded): [4, 1]
+
+--- Node 2 - Receiving Message ---
+  Message ID (local): 1
+  Source: 4
+  Destination(s): -1
+  Is NC Precursor: False
+  Is NC Coded: True
+  Original Message Global IDs: [1, 2, 3]
+  NC Intended Dests: [1, 2, 5]
+  NC Precursor Original Final Dest: None
+  Node 2 received NC-coded message 1 (Data: '01110111').
+  Node 2 is an intended destination. Simulating decoding and delivery.
+  SUCCESS: Node 2 successfully decoded and received its part of NC message. Data: 'DECODED '00110011' (from NC msg '01110111')'
+  Final Path (decoded): [4, 2]
+
+--- Node 5 - Receiving Message ---
+  Message ID (local): 1
+  Source: 4
+  Destination(s): -1
+  Is NC Precursor: False
+  Is NC Coded: True
+  Original Message Global IDs: [1, 2, 3]
+  NC Intended Dests: [1, 2, 5]
+  NC Precursor Original Final Dest: None
+  Node 5 received NC-coded message 1 (Data: '01110111').
+  Node 5 is an intended destination. Simulating decoding and delivery.
+  SUCCESS: Node 5 successfully decoded and received its part of NC message. Data: 'DECODED '10001000' (from NC msg '01110111')'
+  Final Path (decoded): [4, 5]
+
+--- Waiting for 2.0 seconds (Final Processing) ---
+
+============================================================
+        SIMULAÇÃO CONCLUÍDA
+        Resumo de Mensagens Recebidas:
+============================================================
+
+Nó 1:
+  Total de mensagens recebidas: 1
+    - Mensagem 1 (ID local: 1, Origem: 4, Destino(s): 1, Hops: 0, Caminho: 4 -> 1) (NC Decoded - Original Msg, Orig Global ID: 3, From Coder 4): 'DECODED '11001100' (from NC msg '01110111')'
+
+Nó 2:
+  Total de mensagens recebidas: 1
+    - Mensagem 1 (ID local: 1, Origem: 4, Destino(s): 2, Hops: 0, Caminho: 4 -> 2) (NC Decoded - Original Msg, Orig Global ID: 2, From Coder 4): 'DECODED '00110011' (from NC msg '01110111')'
+
+Nó 3:
+  Nenhuma mensagem recebida.
+
+Nó 4:
+  Nenhuma mensagem recebida.
+
+Nó 5:
+  Total de mensagens recebidas: 1
+    - Mensagem 1 (ID local: 1, Origem: 4, Destino(s): 5, Hops: 0, Caminho: 4 -> 5) (NC Decoded - Original Msg, Orig Global ID: 1, From Coder 4): 'DECODED '10001000' (from NC msg '01110111')'
+
+Nó 6:
+  Nenhuma mensagem recebida.
+
+Nó 7:
+  Nenhuma mensagem recebida.
+
+--- Informações Adicionais da Simulação TSCH ---
+Tamanho do Slotframe: 2
+
+Número de Mensagens Transmitidas por Canal (Agregado):
+  Canal 2: 2 transmissões
+  Canal 8: 1 transmissões
+  Canal 9: 1 transmissões
+Total de transmissões em todos os canais: 4
+Número total de canais utilizados: 3
+
+--- Desempenho de Mensagens ---
+Mensagens originadas (tentadas): 0
+Mensagens entregues com sucesso: 3
+Mensagens não enviadas (sem rota inicial): 0
+Mensagens descartadas por limite de hops: 0
+Mensagens descartadas (sem caminho para frente): 0
+Mensagens descartadas (não é destino NC pretendido): 0
+Total de mensagens reencaminhadas (hops intermediários): 0
+Total de mensagens NC codificadas enviadas pelo codificador: 1
+--------------------------------------------------
+
+
+============================================================
+Dados da simulação adicionados ao CSV: ['7nodes4msgs', 7, 3, 3, 2, 4, 3, 1, 0, 0, 0, 0, 0]
+Imagem da topologia final salva como '7nodes4msgs_topology_final_nc.png'.
+Gerando animação da rede. Isso pode levar um tempo...
+Salvando animação como GIF... (isso pode demorar)
+Animação concluída! O arquivo '7nodes4msgs_traffic_nc.gif' foi gerado.

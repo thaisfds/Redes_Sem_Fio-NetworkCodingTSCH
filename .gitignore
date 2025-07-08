@@ -8,10 +8,6 @@ build/
 *.swp
 *.swo
 
-# Ignorar arquivos de log
-*.log
-logs/
-
 # Ignorar arquivos de cache e dados de IDEs comuns
 .vscode/        # VS Code
 .idea/          # IntelliJ/WebStorm/PyCharm

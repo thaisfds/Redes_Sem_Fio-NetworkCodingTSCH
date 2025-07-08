@@ -1,0 +1,13 @@
+Nome_Config_Arquivo,N_Nos_Config,N_Msg_Config,N_Caminhos_Completos,Tamanho_do_Slotframe,N_Transmissoes_Totais,N_Canais_Usados,Network_Coding,Msg_Iniciadas,Msg_Nao_Enviadas_Sem_Rota,Msg_Descartadas_Hop_Limit,Msg_Descartadas_Sem_Prox_Caminho,Total_Retransmissoes_Logicas
+5nodes2msgs,5,2,0,2,4,4,0,2,0,0,0,2
+6nodes2msgs,6,2,0,2,6,4,0,2,0,0,0,4
+6nodes4msgs,6,4,0,2,10,5,0,4,0,0,0,6
+7nodes4msgs,7,3,0,2,9,5,0,3,0,0,0,6
+9nodes2msgs,9,2,0,2,11,5,0,2,0,0,1,9
+9nodes4msgs,9,4,0,2,16,8,0,4,0,0,2,12
+5nodes2msgs,5,2,4,2,5,3,1,2,0,0,0,0
+6nodes2msgs,6,2,4,2,5,3,1,2,0,0,0,0
+6nodes4msgs,6,4,5,2,7,2,1,3,0,0,0,0
+7nodes4msgs,7,3,3,2,4,3,1,0,0,0,0,0
+9nodes2msgs,9,2,4,2,5,3,1,2,0,0,0,0
+9nodes4msgs,9,4,6,2,7,5,1,2,0,0,0,0
